@@ -257,6 +257,15 @@ function handleSocketMessage(data) {
         tickEl.title = "İletildi";
       }
     });
+  } else if (data.type === "incoming_call") {
+    handleIncomingCall(data);
+  } else if (data.type === "call_response") {
+    handleCallResponse(data);
+  } else if (data.type === "webrtc_signal") {
+    handleWebRTCSignal(data);
+  } else if (data.type === "call_ended") {
+    alert(`${data.sender} aramayı sonlandırdı.`);
+    endCall(false);
   } else if (data.type === "message_reaction") {
     if (data.room_id === activeChat.id) {
       updateReactionsInDOM(data.msg_id, data.reactions);
@@ -918,6 +927,399 @@ function linkify(text) {
   const urlRegex = /(https?:\/\/[^\s]+)/g;
   return text.replace(urlRegex, (url) => {
     return `<a href="${url}" target="_blank" rel="noopener noreferrer" style="color: #38bdf8; text-decoration: underline;">${url}</a>`;
+  });
+}
+
+// ==================== IN-CHAT SEARCH ====================
+const searchChatBtn = document.getElementById("search-chat-btn");
+const inChatSearchBar = document.getElementById("in-chat-search-bar");
+const inChatSearchInput = document.getElementById("in-chat-search-input");
+const searchResultCount = document.getElementById("search-result-count");
+const closeInChatSearch = document.getElementById("close-in-chat-search");
+
+if (searchChatBtn) {
+  searchChatBtn.addEventListener("click", () => {
+    const isHidden = inChatSearchBar.style.display === "none";
+    inChatSearchBar.style.display = isHidden ? "flex" : "none";
+    if (isHidden) {
+      inChatSearchInput.focus();
+    } else {
+      clearInChatSearch();
+    }
+  });
+}
+
+if (closeInChatSearch) {
+  closeInChatSearch.addEventListener("click", () => {
+    inChatSearchBar.style.display = "none";
+    clearInChatSearch();
+  });
+}
+
+if (inChatSearchInput) {
+  inChatSearchInput.addEventListener("input", (e) => {
+    const query = e.target.value.trim().toLowerCase();
+    const rows = document.querySelectorAll(".messages-container .message-row:not(.welcome-box)");
+    if (!query) {
+      clearInChatSearch();
+      return;
+    }
+
+    let matchCount = 0;
+    let firstMatch = null;
+    rows.forEach(row => {
+      const text = row.textContent.toLowerCase();
+      if (text.includes(query)) {
+        row.classList.add("highlighted");
+        row.style.opacity = "1";
+        matchCount++;
+        if (!firstMatch) firstMatch = row;
+      } else {
+        row.classList.remove("highlighted");
+        row.style.opacity = "0.3";
+      }
+    });
+
+    searchResultCount.textContent = `${matchCount} eşleşme`;
+    if (firstMatch) {
+      firstMatch.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  });
+}
+
+function clearInChatSearch() {
+  if (inChatSearchInput) inChatSearchInput.value = "";
+  if (searchResultCount) searchResultCount.textContent = "";
+  document.querySelectorAll(".messages-container .message-row").forEach(r => {
+    r.classList.remove("highlighted");
+    r.style.opacity = "1";
+  });
+}
+
+// ==================== WEBRTC CALLS (VOICE & VIDEO) ====================
+let localStream = null;
+let peerConnection = null;
+let currentCall = {
+  peerUser: null,
+  isVideo: false,
+  isCaller: false,
+  timerInterval: null,
+  seconds: 0
+};
+let ringtoneInterval = null;
+
+const rtcConfig = {
+  iceServers: [
+    { urls: "stun:stun.l.google.com:19302" },
+    { urls: "stun:stun1.l.google.com:19302" }
+  ]
+};
+
+function playRingtone() {
+  try {
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    function playBeep() {
+      const osc1 = audioCtx.createOscillator();
+      const osc2 = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+
+      osc1.frequency.setValueAtTime(440, audioCtx.currentTime);
+      osc2.frequency.setValueAtTime(480, audioCtx.currentTime);
+      gain.gain.setValueAtTime(0.06, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 1.2);
+
+      osc1.connect(gain);
+      osc2.connect(gain);
+      gain.connect(audioCtx.destination);
+
+      osc1.start();
+      osc2.start();
+      osc1.stop(audioCtx.currentTime + 1.2);
+      osc2.stop(audioCtx.currentTime + 1.2);
+    }
+    playBeep();
+    ringtoneInterval = setInterval(playBeep, 2500);
+  } catch (e) {}
+}
+
+function stopRingtone() {
+  if (ringtoneInterval) {
+    clearInterval(ringtoneInterval);
+    ringtoneInterval = null;
+  }
+}
+
+const voiceCallBtn = document.getElementById("voice-call-btn");
+const videoCallBtn = document.getElementById("video-call-btn");
+
+if (voiceCallBtn) voiceCallBtn.addEventListener("click", () => initiateCall(false));
+if (videoCallBtn) videoCallBtn.addEventListener("click", () => initiateCall(true));
+
+function getCallTargetUser() {
+  if (activeChat.isDirect && activeChat.recipient) {
+    return activeChat.recipient;
+  }
+  if (onlineUsers.length > 0) {
+    return onlineUsers[0];
+  }
+  return null;
+}
+
+async function initiateCall(isVideo) {
+  const targetUser = getCallTargetUser();
+  if (!targetUser) {
+    alert("Arama yapabilmek için Kişiler sekmesinden çevrimiçi bir kişiye tıklayınız.");
+    return;
+  }
+
+  currentCall.peerUser = targetUser;
+  currentCall.isVideo = isVideo;
+  currentCall.isCaller = true;
+
+  try {
+    localStream = await navigator.mediaDevices.getUserMedia({
+      audio: true,
+      video: isVideo
+    });
+    showActiveCallScreen(targetUser, isVideo, localStream);
+    playRingtone();
+
+    socket.send(JSON.stringify({
+      action: "call_user",
+      target_user: targetUser,
+      is_video: isVideo,
+      room_id: activeChat.id
+    }));
+  } catch (e) {
+    alert("Mikrofon veya kameraya erişim izni verilmedi.");
+  }
+}
+
+function handleIncomingCall(data) {
+  currentCall.peerUser = data.caller;
+  currentCall.isVideo = data.is_video;
+  currentCall.isCaller = false;
+
+  document.getElementById("incoming-caller-name").textContent = data.caller;
+  document.getElementById("incoming-call-avatar").textContent = getInitials(data.caller);
+  document.getElementById("incoming-call-avatar").style.background = stringToColor(data.caller);
+  document.getElementById("incoming-call-type").textContent = data.is_video ? "Görüntülü WhatsApp Araması..." : "Sesli WhatsApp Araması...";
+
+  document.getElementById("incoming-call-modal").style.display = "flex";
+  playRingtone();
+}
+
+const declineCallBtn = document.getElementById("decline-call-btn");
+if (declineCallBtn) {
+  declineCallBtn.addEventListener("click", () => {
+    stopRingtone();
+    document.getElementById("incoming-call-modal").style.display = "none";
+    if (socket && socket.readyState === WebSocket.OPEN && currentCall.peerUser) {
+      socket.send(JSON.stringify({
+        action: "call_response",
+        target_user: currentCall.peerUser,
+        accepted: false
+      }));
+    }
+  });
+}
+
+const acceptCallBtn = document.getElementById("accept-call-btn");
+if (acceptCallBtn) {
+  acceptCallBtn.addEventListener("click", async () => {
+    stopRingtone();
+    document.getElementById("incoming-call-modal").style.display = "none";
+
+    try {
+      localStream = await navigator.mediaDevices.getUserMedia({
+        audio: true,
+        video: currentCall.isVideo
+      });
+      showActiveCallScreen(currentCall.peerUser, currentCall.isVideo, localStream);
+
+      socket.send(JSON.stringify({
+        action: "call_response",
+        target_user: currentCall.peerUser,
+        accepted: true
+      }));
+
+      setupPeerConnection();
+    } catch (e) {
+      alert("Mikrofon veya kamera izni verilmedi.");
+    }
+  });
+}
+
+async function handleCallResponse(data) {
+  stopRingtone();
+  if (!data.accepted) {
+    alert(`${data.responder} aramayı reddetti.`);
+    endCall(false);
+  } else {
+    setupPeerConnection();
+    const offer = await peerConnection.createOffer();
+    await peerConnection.setLocalDescription(offer);
+    socket.send(JSON.stringify({
+      action: "webrtc_signal",
+      target_user: currentCall.peerUser,
+      signal: { type: "offer", sdp: offer }
+    }));
+  }
+}
+
+function setupPeerConnection() {
+  peerConnection = new RTCPeerConnection(rtcConfig);
+
+  if (localStream) {
+    localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
+  }
+
+  peerConnection.ontrack = (event) => {
+    const remoteVideo = document.getElementById("remote-video");
+    if (event.streams && event.streams[0]) {
+      remoteVideo.srcObject = event.streams[0];
+    }
+  };
+
+  peerConnection.onicecandidate = (event) => {
+    if (event.candidate && currentCall.peerUser) {
+      socket.send(JSON.stringify({
+        action: "webrtc_signal",
+        target_user: currentCall.peerUser,
+        signal: { type: "candidate", candidate: event.candidate }
+      }));
+    }
+  };
+
+  startCallTimer();
+}
+
+async function handleWebRTCSignal(data) {
+  const signal = data.signal;
+  if (!peerConnection) {
+    setupPeerConnection();
+  }
+
+  if (signal.type === "offer") {
+    await peerConnection.setRemoteDescription(new RTCSessionDescription(signal.sdp));
+    const answer = await peerConnection.createAnswer();
+    await peerConnection.setLocalDescription(answer);
+    socket.send(JSON.stringify({
+      action: "webrtc_signal",
+      target_user: data.sender,
+      signal: { type: "answer", sdp: answer }
+    }));
+  } else if (signal.type === "answer") {
+    await peerConnection.setRemoteDescription(new RTCSessionDescription(signal.sdp));
+  } else if (signal.type === "candidate") {
+    try {
+      await peerConnection.addIceCandidate(new RTCIceCandidate(signal.candidate));
+    } catch (e) {}
+  }
+}
+
+function showActiveCallScreen(peerName, isVideo, stream) {
+  document.getElementById("active-call-modal").style.display = "flex";
+  document.getElementById("active-call-peer-name").textContent = peerName;
+
+  const localVideo = document.getElementById("local-video");
+  const remoteVideo = document.getElementById("remote-video");
+  const audioDisplay = document.getElementById("audio-call-display");
+  const audioAvatar = document.getElementById("audio-call-avatar");
+
+  if (isVideo) {
+    localVideo.style.display = "block";
+    remoteVideo.style.display = "block";
+    audioDisplay.style.display = "none";
+    localVideo.srcObject = stream;
+  } else {
+    localVideo.style.display = "none";
+    remoteVideo.style.display = "none";
+    audioDisplay.style.display = "flex";
+    audioAvatar.textContent = getInitials(peerName);
+    audioAvatar.style.background = stringToColor(peerName);
+  }
+}
+
+function startCallTimer() {
+  currentCall.seconds = 0;
+  const timerEl = document.getElementById("active-call-timer");
+  timerEl.textContent = "00:00";
+  currentCall.timerInterval = setInterval(() => {
+    currentCall.seconds++;
+    const m = String(Math.floor(currentCall.seconds / 60)).padStart(2, "0");
+    const s = String(currentCall.seconds % 60).padStart(2, "0");
+    timerEl.textContent = `${m}:${s}`;
+  }, 1000);
+}
+
+function endCall(notifyPeer = true) {
+  stopRingtone();
+  if (currentCall.timerInterval) {
+    clearInterval(currentCall.timerInterval);
+    currentCall.timerInterval = null;
+  }
+
+  if (notifyPeer && currentCall.peerUser && socket && socket.readyState === WebSocket.OPEN) {
+    socket.send(JSON.stringify({
+      action: "end_call",
+      target_user: currentCall.peerUser
+    }));
+  }
+
+  if (localStream) {
+    localStream.getTracks().forEach(t => t.stop());
+    localStream = null;
+  }
+
+  if (peerConnection) {
+    peerConnection.close();
+    peerConnection = null;
+  }
+
+  document.getElementById("active-call-modal").style.display = "none";
+  document.getElementById("incoming-call-modal").style.display = "none";
+
+  const localVideo = document.getElementById("local-video");
+  const remoteVideo = document.getElementById("remote-video");
+  if (localVideo) localVideo.srcObject = null;
+  if (remoteVideo) remoteVideo.srcObject = null;
+
+  currentCall.peerUser = null;
+}
+
+const hangupCallBtn = document.getElementById("hangup-call-btn");
+if (hangupCallBtn) hangupCallBtn.addEventListener("click", () => endCall(true));
+
+const toggleMicBtn = document.getElementById("toggle-mic-btn");
+if (toggleMicBtn) {
+  toggleMicBtn.addEventListener("click", (e) => {
+    if (localStream) {
+      const audioTrack = localStream.getAudioTracks()[0];
+      if (audioTrack) {
+        audioTrack.enabled = !audioTrack.enabled;
+        e.currentTarget.classList.toggle("muted", !audioTrack.enabled);
+        e.currentTarget.innerHTML = audioTrack.enabled
+          ? '<i class="fa-solid fa-microphone"></i>'
+          : '<i class="fa-solid fa-microphone-slash"></i>';
+      }
+    }
+  });
+}
+
+const toggleCamBtn = document.getElementById("toggle-cam-btn");
+if (toggleCamBtn) {
+  toggleCamBtn.addEventListener("click", (e) => {
+    if (localStream) {
+      const videoTrack = localStream.getVideoTracks()[0];
+      if (videoTrack) {
+        videoTrack.enabled = !videoTrack.enabled;
+        e.currentTarget.classList.toggle("muted", !videoTrack.enabled);
+        e.currentTarget.innerHTML = videoTrack.enabled
+          ? '<i class="fa-solid fa-video"></i>'
+          : '<i class="fa-solid fa-video-slash"></i>';
+      }
+    }
   });
 }
 

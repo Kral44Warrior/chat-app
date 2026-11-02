@@ -153,6 +153,15 @@ class ConnectionManager:
             self.room_connections[room_id] = set()
         self.room_connections[room_id].add(websocket)
 
+    async def send_to_user(self, username: str, message: dict):
+        text = json.dumps(message)
+        if username in self.online_users:
+            for s in list(self.online_users[username]):
+                try:
+                    await s.send_text(text)
+                except Exception:
+                    pass
+
     async def broadcast_user_list(self):
         users = list(self.online_users.keys())
         msg = {
@@ -453,6 +462,42 @@ async def websocket_endpoint(websocket: WebSocket):
                     "reactions": reactions_dict
                 }
                 await manager.broadcast_to_room(room_id, out)
+
+            elif action == "call_user":
+                target_user = payload.get("target_user")
+                is_video = payload.get("is_video", False)
+                await manager.send_to_user(target_user, {
+                    "type": "incoming_call",
+                    "caller": username,
+                    "is_video": is_video,
+                    "room_id": payload.get("room_id")
+                })
+
+            elif action == "call_response":
+                target_user = payload.get("target_user")
+                accepted = payload.get("accepted", False)
+                await manager.send_to_user(target_user, {
+                    "type": "call_response",
+                    "responder": username,
+                    "accepted": accepted
+                })
+
+            elif action == "webrtc_signal":
+                target_user = payload.get("target_user")
+                signal = payload.get("signal")
+                await manager.send_to_user(target_user, {
+                    "type": "webrtc_signal",
+                    "sender": username,
+                    "signal": signal
+                })
+
+            elif action == "end_call":
+                target_user = payload.get("target_user")
+                if target_user:
+                    await manager.send_to_user(target_user, {
+                        "type": "call_ended",
+                        "sender": username
+                    })
 
     except WebSocketDisconnect:
         manager.disconnect(websocket)

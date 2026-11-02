@@ -120,11 +120,30 @@
           </div>
         </div>
         <div class="chat-header-actions">
+          <button class="icon-btn" id="voice-call-btn" title="Sesli Arama Yap">
+            <i class="fa-solid fa-phone"></i>
+          </button>
+          <button class="icon-btn" id="video-call-btn" title="Görüntülü Arama Yap">
+            <i class="fa-solid fa-video"></i>
+          </button>
+          <button class="icon-btn" id="search-chat-btn" title="Mesajlarda Ara">
+            <i class="fa-solid fa-magnifying-glass"></i>
+          </button>
           <button class="icon-btn" id="scroll-bottom-btn" title="En Alta Git">
             <i class="fa-solid fa-angles-down"></i>
           </button>
         </div>
       </header>
+
+      <!-- In-Chat Search Bar -->
+      <div class="in-chat-search-bar" id="in-chat-search-bar" style="display: none;">
+        <i class="fa-solid fa-magnifying-glass search-bar-icon"></i>
+        <input type="text" id="in-chat-search-input" placeholder="Bu sohbette mesaj ara...">
+        <span id="search-result-count" class="search-count"></span>
+        <button class="icon-btn close-search-btn" id="close-in-chat-search" title="Aramayı Kapat">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
 
       <!-- Message History Container -->
       <div class="messages-container" id="messages-container">
@@ -283,6 +302,60 @@
         <i class="fa-solid fa-xmark"></i>
       </button>
       <img id="modal-img" src="" alt="Büyütülmüş Resim">
+    </div>
+  </div>
+
+  <!-- Incoming Call Modal (WhatsApp Style) -->
+  <div id="incoming-call-modal" class="modal-overlay" style="display: none;">
+    <div class="call-card incoming-call-card">
+      <div class="call-pulse-wrap">
+        <div class="avatar call-avatar-pulse" id="incoming-call-avatar">👤</div>
+      </div>
+      <h3 id="incoming-caller-name">Arkadaşın</h3>
+      <p id="incoming-call-type">WhatsApp Araması...</p>
+      <div class="call-modal-actions">
+        <button class="call-circle-btn decline-btn" id="decline-call-btn" title="Reddet">
+          <i class="fa-solid fa-phone-slash"></i>
+        </button>
+        <button class="call-circle-btn accept-btn" id="accept-call-btn" title="Cevapla">
+          <i class="fa-solid fa-phone"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Active Call Video / Voice Screen -->
+  <div id="active-call-modal" class="modal-overlay" style="display: none;">
+    <div class="active-call-screen">
+      <div class="call-screen-header">
+        <div class="call-peer-info">
+          <span id="active-call-peer-name">Arkadaşın</span>
+          <span class="call-timer-badge" id="active-call-timer">00:00</span>
+        </div>
+      </div>
+      
+      <!-- Video Area -->
+      <div class="video-grid" id="video-grid">
+        <video id="remote-video" autoplay playsinline></video>
+        <video id="local-video" autoplay playsinline muted></video>
+        <div id="audio-call-display" class="audio-call-display" style="display: none;">
+          <div class="avatar call-large-avatar" id="audio-call-avatar">👤</div>
+          <p>Sesli Arama Sürüyor...</p>
+        </div>
+      </div>
+
+      <!-- Controls -->
+      <div class="call-controls-bar">
+        <button class="call-control-btn" id="toggle-mic-btn" title="Mikrofon">
+          <i class="fa-solid fa-microphone"></i>
+        </button>
+        <button class="call-control-btn" id="toggle-cam-btn" title="Kamera">
+          <i class="fa-solid fa-video"></i>
+        </button>
+        <button class="call-control-btn hangup-btn" id="hangup-call-btn" title="Aramayı Kapat">
+          <i class="fa-solid fa-phone-slash"></i>
+        </button>
+      </div>
     </div>
   </div>
 
