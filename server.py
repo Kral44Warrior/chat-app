@@ -18,12 +18,19 @@ from fastapi.responses import HTMLResponse, FileResponse, JSONResponse
 import uvicorn
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-STATIC_DIR = os.path.join(BASE_DIR, "static")
 UPLOADS_DIR = os.path.join(BASE_DIR, "uploads")
 DB_PATH = os.path.join(BASE_DIR, "chat.db")
 
-os.makedirs(STATIC_DIR, exist_ok=True)
 os.makedirs(UPLOADS_DIR, exist_ok=True)
+
+def find_file(filename):
+    p1 = os.path.join(BASE_DIR, filename)
+    if os.path.exists(p1):
+        return p1
+    p2 = os.path.join(BASE_DIR, "static", filename)
+    if os.path.exists(p2):
+        return p2
+    return p1
 
 # ----------------- Database Setup -----------------
 def init_db():
@@ -162,13 +169,22 @@ manager = ConnectionManager()
 # ----------------- FastAPI App -----------------
 app = FastAPI(title="Chat App")
 
-# Static files
-app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
-app.mount("/uploads", StaticFiles(directory=UPLOADS_DIR), name="uploads")
-
+# Static files & Routes
 @app.get("/")
 def get_index():
-    return FileResponse(os.path.join(STATIC_DIR, "index.html"))
+    return FileResponse(find_file("index.html"))
+
+@app.get("/static/style.css")
+@app.get("/style.css")
+def get_css():
+    return FileResponse(find_file("style.css"))
+
+@app.get("/static/app.js")
+@app.get("/app.js")
+def get_js():
+    return FileResponse(find_file("app.js"))
+
+app.mount("/uploads", StaticFiles(directory=UPLOADS_DIR), name="uploads")
 
 @app.get("/api/rooms")
 def get_rooms():
