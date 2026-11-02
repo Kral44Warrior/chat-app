@@ -64,9 +64,15 @@ def init_db():
             reply_to_text TEXT,
             reply_to_sender TEXT,
             timestamp TEXT NOT NULL,
-            reactions TEXT DEFAULT '{}'
+            reactions TEXT DEFAULT '{}',
+            status TEXT DEFAULT 'sent'
         )
     """)
+
+    try:
+        cursor.execute("ALTER TABLE messages ADD COLUMN status TEXT DEFAULT 'sent'")
+    except Exception:
+        pass
 
     # Varsayılan Odalar
     default_rooms = [
@@ -102,6 +108,29 @@ class ConnectionManager:
             self.online_users[username] = set()
         self.online_users[username].add(websocket)
         await self.broadcast_user_list()
+
+        # Karşı taraf internete bağlandığı için gönderilen 'sent' mesajları 'delivered' (2 beyaz tik) yap
+        try:
+            conn = sqlite3.connect(DB_PATH)
+            cursor = conn.cursor()
+            cursor.execute("""
+                UPDATE messages 
+                SET status = 'delivered' 
+                WHERE status = 'sent' AND sender != ?
+            """, (username,))
+            if cursor.rowcount > 0:
+                conn.commit()
+                conn.close()
+                deliv_msg = json.dumps({"type": "messages_delivered", "user": username})
+                for ws in list(self.user_sockets.keys()):
+                    try:
+                        await ws.send_text(deliv_msg)
+                    except Exception:
+                        pass
+            else:
+                conn.close()
+        except Exception:
+            pass
 
     def disconnect(self, websocket: WebSocket):
         username = self.user_sockets.pop(websocket, None)
@@ -259,6 +288,45 @@ async def websocket_endpoint(websocket: WebSocket):
                 room_id = payload.get("room_id")
                 await manager.join_room(websocket, room_id)
 
+                # Kullanıcı odaya girdiğinde, odadaki okunmamış mesajları okundu yap
+                conn = sqlite3.connect(DB_PATH)
+                cursor = conn.cursor()
+                cursor.execute("""
+                    UPDATE messages 
+                    SET status = 'read' 
+                    WHERE room_id = ? AND sender != ? AND status != 'read'
+                """, (room_id, username))
+                updated_count = cursor.rowcount
+                conn.commit()
+                conn.close()
+
+                if updated_count > 0:
+                    await manager.broadcast_to_room(room_id, {
+                        "type": "messages_read",
+                        "room_id": room_id,
+                        "reader": username
+                    })
+
+            elif action == "mark_read":
+                room_id = payload.get("room_id")
+                conn = sqlite3.connect(DB_PATH)
+                cursor = conn.cursor()
+                cursor.execute("""
+                    UPDATE messages 
+                    SET status = 'read' 
+                    WHERE room_id = ? AND sender != ? AND status != 'read'
+                """, (room_id, username))
+                updated_count = cursor.rowcount
+                conn.commit()
+                conn.close()
+
+                if updated_count > 0:
+                    await manager.broadcast_to_room(room_id, {
+                        "type": "messages_read",
+                        "room_id": room_id,
+                        "reader": username
+                    })
+
             elif action == "chat_message":
                 msg_id = uuid.uuid4().hex[:10]
                 room_id = payload.get("room_id")
@@ -272,13 +340,47 @@ async def websocket_endpoint(websocket: WebSocket):
                 reply_to_sender = payload.get("reply_to_sender")
                 now_iso = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
+                # WhatsApp Tik Mantığı:
+                # 1. 'sent' (1 beyaz tik) -> Karşı tarafın interneti kapalı/çevrimdışı
+                # 2. 'delivered' (2 beyaz tik) -> Karşı taraf internete bağlı ama odayı açmamış
+                # 3. 'read' (2 mavi tik) -> Karşı taraf şu an bu odada ve görüyor!
+                msg_status = "sent"
+
+                if room_id.startswith("dm_"):
+                    parts = room_id.split("__")
+                    if len(parts) == 2:
+                        u1 = parts[0].replace("dm_", "")
+                        u2 = parts[1]
+                        other_user = u2 if u1 == username else u1
+
+                        if other_user in manager.online_users:
+                            other_sockets = manager.online_users[other_user]
+                            in_room = any(manager.socket_rooms.get(s) == room_id for s in other_sockets)
+                            if in_room:
+                                msg_status = "read"
+                            else:
+                                msg_status = "delivered"
+                        else:
+                            msg_status = "sent"
+                else:
+                    active_sockets_in_room = manager.room_connections.get(room_id, set())
+                    other_sockets_in_room = [s for s in active_sockets_in_room if manager.user_sockets.get(s) != username]
+                    other_online_users = [u for u in manager.online_users.keys() if u != username]
+
+                    if other_sockets_in_room:
+                        msg_status = "read"
+                    elif other_online_users:
+                        msg_status = "delivered"
+                    else:
+                        msg_status = "sent"
+
                 conn = sqlite3.connect(DB_PATH)
                 cursor = conn.cursor()
                 cursor.execute("""
                     INSERT INTO messages 
-                    (id, room_id, sender, content, msg_type, file_url, file_name, file_size, reply_to_id, reply_to_text, reply_to_sender, timestamp, reactions)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """, (msg_id, room_id, username, content, msg_type, file_url, file_name, file_size, reply_to_id, reply_to_text, reply_to_sender, now_iso, "{}"))
+                    (id, room_id, sender, content, msg_type, file_url, file_name, file_size, reply_to_id, reply_to_text, reply_to_sender, timestamp, reactions, status)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (msg_id, room_id, username, content, msg_type, file_url, file_name, file_size, reply_to_id, reply_to_text, reply_to_sender, now_iso, "{}", msg_status))
                 conn.commit()
                 conn.close()
 
@@ -296,7 +398,8 @@ async def websocket_endpoint(websocket: WebSocket):
                     "reply_to_text": reply_to_text,
                     "reply_to_sender": reply_to_sender,
                     "timestamp": now_iso,
-                    "reactions": {}
+                    "reactions": {},
+                    "status": msg_status
                 }
                 await manager.broadcast_to_room(room_id, out_msg)
 

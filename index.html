@@ -204,20 +204,73 @@
         </div>
       </div>
 
-      <!-- Emoji Picker Panel -->
+      <!-- Rich Emoji Picker Panel -->
       <div class="emoji-picker" id="emoji-picker" style="display: none;">
-        <div class="emoji-grid">
-          <span>😀</span><span>😃</span><span>😄</span><span>😁</span><span>😆</span><span>😂</span><span>🤣</span><span>😊</span>
-          <span>😇</span><span>🙂</span><span>🙃</span><span>😉</span><span>😌</span><span>😍</span><span>🥰</span><span>😘</span>
-          <span>😗</span><span>😙</span><span>😚</span><span>😋</span><span>😛</span><span>😜</span><span>🤪</span><span>😝</span>
-          <span>🤗</span><span>🤭</span><span>🤫</span><span>🤔</span><span>🤐</span><span>🤨</span><span>😐</span><span>😑</span>
-          <span>😶</span><span>😏</span><span>😒</span><span>🙄</span><span>😬</span><span>🤥</span><span>😌</span><span>😔</span>
-          <span>😪</span><span>🤤</span><span>😴</span><span>😷</span><span>🤒</span><span>🤕</span><span>🤢</span><span>🤮</span>
-          <span>🥳</span><span>😎</span><span>🤓</span><span>🧐</span><span>😕</span><span>😟</span><span>🙁</span><span>😮</span>
-          <span>👍</span><span>👎</span><span>👌</span><span>✌️</span><span>🤞</span><span>🤟</span><span>🤘</span><span>🤙</span>
-          <span>👏</span><span>🙌</span><span>👐</span><span>🤲</span><span>🤝</span><span>🙏</span><span>💪</span><span>🔥</span>
-          <span>❤️</span><span>🧡</span><span>💛</span><span>💚</span><span>💙</span><span>💜</span><span>🖤</span><span>🤍</span>
-          <span>✨</span><span>🎉</span><span>🚀</span><span>⭐</span><span>💯</span><span>⚡</span><span>☕</span><span>🍕</span>
+        <div class="emoji-tabs">
+          <button type="button" class="emoji-tab-btn active" data-target="cat-faces" title="Yüzler">😊</button>
+          <button type="button" class="emoji-tab-btn" data-target="cat-gestures" title="El Hareketleri">👍</button>
+          <button type="button" class="emoji-tab-btn" data-target="cat-hearts" title="Kalpler">❤️</button>
+          <button type="button" class="emoji-tab-btn" data-target="cat-fire" title="Popüler">🔥</button>
+          <button type="button" class="emoji-tab-btn" data-target="cat-objects" title="Nesneler">🎮</button>
+          <button type="button" class="emoji-tab-btn" data-target="cat-animals" title="Hayvanlar">🐶</button>
+        </div>
+        <div class="emoji-scroll-area">
+          <div class="emoji-cat-title">Yüzler & İfadeler</div>
+          <div class="emoji-grid" id="cat-faces">
+            <span>😀</span><span>😃</span><span>😄</span><span>😁</span><span>😆</span><span>😅</span><span>😂</span><span>🤣</span>
+            <span>🥲</span><span>🥹</span><span>☺️</span><span>😊</span><span>😇</span><span>🙂</span><span>🙃</span><span>😉</span>
+            <span>😌</span><span>😍</span><span>🥰</span><span>😘</span><span>😗</span><span>😙</span><span>😚</span><span>😋</span>
+            <span>😛</span><span>😜</span><span>🤪</span><span>😝</span><span>🤑</span><span>🤗</span><span>🤭</span><span>🤫</span>
+            <span>🤔</span><span>🤐</span><span>🤨</span><span>😐</span><span>😑</span><span>😶</span><span>😏</span><span>😒</span>
+            <span>🙄</span><span>😬</span><span>😮‍💨</span><span>🤥</span><span>😌</span><span>😔</span><span>😪</span><span>🤤</span>
+            <span>😴</span><span>😷</span><span>🤒</span><span>🤕</span><span>🤢</span><span>🤮</span><span>🤧</span><span>🥵</span>
+            <span>🥶</span><span>🥴</span><span>😵</span><span>🤯</span><span>🤠</span><span>🥳</span><span>🥸</span><span>😎</span>
+            <span>🤓</span><span>🧐</span><span>😕</span><span>😟</span><span>🙁</span><span>😮</span><span>😯</span><span>😲</span>
+            <span>😳</span><span>🥺</span><span>😦</span><span>😧</span><span>😨</span><span>😰</span><span>😥</span><span>😢</span>
+            <span>😭</span><span>😱</span><span>😖</span><span>😣</span><span>😞</span><span>😓</span><span>😩</span><span>😫</span>
+            <span>🥱</span><span>😤</span><span>😡</span><span>😠</span><span>🤬</span><span>😈</span><span>👿</span><span>💀</span>
+          </div>
+
+          <div class="emoji-cat-title">El & Beden Hareketleri</div>
+          <div class="emoji-grid" id="cat-gestures">
+            <span>👋</span><span>🤚</span><span>🖐️</span><span>✋</span><span>🖖</span><span>🫱</span><span>🫲</span><span>🫸</span>
+            <span>🫷</span><span>🫵</span><span>👉</span><span>👈</span><span>☝️</span><span>👆</span><span>👇</span><span>✌️</span>
+            <span>🤞</span><span>🫰</span><span>🤟</span><span>🤘</span><span>🤙</span><span>👌</span><span>🤌</span><span>🤏</span>
+            <span>👍</span><span>👎</span><span>✊</span><span>👊</span><span>🤛</span><span>🤜</span><span>👏</span><span>🙌</span>
+            <span>🫶</span><span>👐</span><span>🤲</span><span>🤝</span><span>🙏</span><span>✍️</span><span>💅</span><span>🤳</span>
+            <span>💪</span><span>🦾</span><span>🦵</span><span>🦶</span><span>👂</span><span>🦻</span><span>👃</span><span>👀</span>
+          </div>
+
+          <div class="emoji-cat-title">Kalpler & Aşk</div>
+          <div class="emoji-grid" id="cat-hearts">
+            <span>❤️</span><span>🧡</span><span>💛</span><span>💚</span><span>💙</span><span>💜</span><span>🖤</span><span>🤍</span>
+            <span>🤎</span><span>💔</span><span>❤️‍🔥</span><span>❤️‍🩹</span><span>❣️</span><span>💕</span><span>💞</span><span>💓</span>
+            <span>💗</span><span>💖</span><span>💘</span><span>💝</span><span>💟</span><span>💌</span><span>💋</span><span>🌹</span>
+          </div>
+
+          <div class="emoji-cat-title">Popüler & Kutlama</div>
+          <div class="emoji-grid" id="cat-fire">
+            <span>🔥</span><span>💯</span><span>✨</span><span>⭐</span><span>🌟</span><span>⚡</span><span>💥</span><span>🎉</span>
+            <span>🎊</span><span>🎈</span><span>🎁</span><span>🏆</span><span>🥇</span><span>🥈</span><span>🥉</span><span>👑</span>
+            <span>💎</span><span>💸</span><span>💰</span><span>💵</span><span>🚀</span><span>🛸</span><span>🚨</span><span>🎯</span>
+          </div>
+
+          <div class="emoji-cat-title">Oyun, Eğlence & Nesneler</div>
+          <div class="emoji-grid" id="cat-objects">
+            <span>🎮</span><span>🕹️</span><span>🎲</span><span>♟️</span><span>🧩</span><span>🎧</span><span>🎵</span><span>🎶</span>
+            <span>🎸</span><span>🎹</span><span>🥁</span><span>⚽</span><span>🏀</span><span>🏈</span><span>⚾</span><span>🎾</span>
+            <span>📱</span><span>💻</span><span>⌨️</span><span>🖥️</span><span>📸</span><span>📹</span><span>🎥</span><span>📺</span>
+            <span>☕</span><span>🍕</span><span>🍔</span><span>🍟</span><span>🌭</span><span>🍿</span><span>🍩</span><span>🍦</span>
+            <span>🚗</span><span>🏎️</span><span>🏍️</span><span>🚲</span><span>✈️</span><span>🔑</span><span>🔒</span><span>🔔</span>
+          </div>
+
+          <div class="emoji-cat-title">Hayvanlar & Doğa</div>
+          <div class="emoji-grid" id="cat-animals">
+            <span>🐶</span><span>🐱</span><span>🐭</span><span>🐹</span><span>🐰</span><span>🦊</span><span>🐻</span><span>🐼</span>
+            <span>🦁</span><span>🐯</span><span>🐨</span><span>🐵</span><span>🐒</span><span>🐔</span><span>🐧</span><span>🐦</span>
+            <span>🐺</span><span>🐗</span><span>🐴</span><span>🦄</span><span>🐝</span><span>🐛</span><span>🦋</span><span>🐌</span>
+            <span>☀️</span><span>🌙</span><span>⭐</span><span>☁️</span><span>🌧️</span><span>⛈️</span><span>❄️</span><span>🌈</span>
+          </div>
         </div>
       </div>
     </main>

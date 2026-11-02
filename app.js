@@ -189,6 +189,7 @@ function connectWebSocket() {
   socket.onopen = () => {
     console.log("WebSocket bağlantısı başarılı");
     joinActiveRoom();
+    markActiveRoomAsRead();
   };
 
   socket.onmessage = (event) => {
@@ -242,6 +243,20 @@ function handleSocketMessage(data) {
         typingBar.style.display = "none";
       }
     }
+  } else if (data.type === "messages_read") {
+    if (data.room_id === activeChat.id) {
+      document.querySelectorAll(".message-row.me .msg-tick").forEach(tickEl => {
+        tickEl.className = "fa-solid fa-check-double msg-tick read";
+        tickEl.title = "Okundu";
+      });
+    }
+  } else if (data.type === "messages_delivered") {
+    document.querySelectorAll(".message-row.me .msg-tick").forEach(tickEl => {
+      if (!tickEl.classList.contains("read")) {
+        tickEl.className = "fa-solid fa-check-double msg-tick";
+        tickEl.title = "İletildi";
+      }
+    });
   } else if (data.type === "message_reaction") {
     if (data.room_id === activeChat.id) {
       updateReactionsInDOM(data.msg_id, data.reactions);
@@ -372,6 +387,7 @@ function switchChat(roomId, name, isDirect, icon, recipient) {
 
   joinActiveRoom();
   loadMessages(roomId);
+  markActiveRoomAsRead();
 
   // Mobile navigation
   appLayout.classList.add("chat-open");
@@ -442,6 +458,27 @@ async function loadMessages(roomId) {
   }
 }
 
+function getTickIconHTML(status) {
+  if (status === "read") {
+    return '<i class="fa-solid fa-check-double msg-tick read" title="Okundu"></i>';
+  } else if (status === "delivered") {
+    return '<i class="fa-solid fa-check-double msg-tick" title="İletildi"></i>';
+  } else {
+    return '<i class="fa-solid fa-check msg-tick" title="Gönderildi"></i>';
+  }
+}
+
+function markActiveRoomAsRead() {
+  if (socket && socket.readyState === WebSocket.OPEN) {
+    socket.send(JSON.stringify({
+      action: "mark_read",
+      room_id: activeChat.id
+    }));
+  }
+}
+
+window.addEventListener("focus", markActiveRoomAsRead);
+
 function appendMessage(m) {
   const isMe = m.sender === currentUser.username;
   const row = document.createElement("div");
@@ -494,7 +531,7 @@ function appendMessage(m) {
       ${bodyContent}
       <div class="bubble-meta">
         <span>${timeStr}</span>
-        ${isMe ? '<i class="fa-solid fa-check-double"></i>' : ''}
+        ${isMe ? getTickIconHTML(m.status || 'sent') : ''}
       </div>
     </div>
     
@@ -816,7 +853,7 @@ window.seekAudio = function(containerId, value) {
 // ==================== EMOJI PICKER ====================
 emojiBtn.addEventListener("click", (e) => {
   e.stopPropagation();
-  emojiPicker.style.display = emojiPicker.style.display === "none" ? "block" : "none";
+  emojiPicker.style.display = emojiPicker.style.display === "none" ? "flex" : "none";
 });
 
 emojiPicker.addEventListener("click", (e) => {
@@ -824,6 +861,21 @@ emojiPicker.addEventListener("click", (e) => {
     messageInput.value += e.target.textContent;
     messageInput.focus();
   }
+});
+
+// Emoji Category Tabs
+const emojiTabBtns = document.querySelectorAll(".emoji-tab-btn");
+emojiTabBtns.forEach(btn => {
+  btn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    emojiTabBtns.forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    const targetId = btn.getAttribute("data-target");
+    const targetEl = document.getElementById(targetId);
+    if (targetEl) {
+      targetEl.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+  });
 });
 
 document.addEventListener("click", (e) => {
