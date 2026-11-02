@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Chat - Anlık Sohbet</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="dark-theme">
+
+  <!-- Login Modal -->
+  <div id="login-modal" class="modal-overlay">
+    <div class="login-card">
+      <div class="login-header">
+        <div class="brand-logo">
+          <i class="fa-solid fa-comments"></i>
+        </div>
+        <h2>Chat'e Hoş Geldiniz</h2>
+        <p>WhatsApp & Telegram tarzı gerçek zamanlı sohbet</p>
+      </div>
+      <form id="login-form">
+        <div class="form-group">
+          <label for="username-input">Kullanıcı Adınız</label>
+          <div class="input-with-icon">
+            <i class="fa-solid fa-user"></i>
+            <input type="text" id="username-input" placeholder="Örn: Ahmet, Furkan, Zeynep..." maxlength="20" required autofocus>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Avatar Rengi Seçin</label>
+          <div class="avatar-colors" id="avatar-colors">
+            <span class="color-dot active" data-color="#10b981" style="background:#10b981"></span>
+            <span class="color-dot" data-color="#3b82f6" style="background:#3b82f6"></span>
+            <span class="color-dot" data-color="#8b5cf6" style="background:#8b5cf6"></span>
+            <span class="color-dot" data-color="#ec4899" style="background:#ec4899"></span>
+            <span class="color-dot" data-color="#f59e0b" style="background:#f59e0b"></span>
+            <span class="color-dot" data-color="#06b6d4" style="background:#06b6d4"></span>
+          </div>
+        </div>
+        <button type="submit" class="btn-primary w-100">
+          <span>Sohbete Başla</span>
+          <i class="fa-solid fa-arrow-right"></i>
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Main Chat Container -->
+  <div class="app-layout" id="app-layout" style="display: none;">
+    
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+      <!-- Sidebar Header -->
+      <div class="sidebar-header">
+        <div class="my-profile">
+          <div class="avatar my-avatar" id="my-avatar">U</div>
+          <div class="my-info">
+            <span class="my-name" id="my-name-display">Kullanıcı</span>
+            <span class="my-status"><span class="status-indicator online"></span> Çevrimiçi</span>
+          </div>
+        </div>
+        <div class="sidebar-actions">
+          <button class="icon-btn" id="theme-toggle" title="Tema Değiştir">
+            <i class="fa-solid fa-moon"></i>
+          </button>
+          <button class="icon-btn" id="logout-btn" title="Çıkış Yap">
+            <i class="fa-solid fa-arrow-right-from-bracket"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Search Bar -->
+      <div class="search-box-wrap">
+        <div class="search-box">
+          <i class="fa-solid fa-magnifying-glass"></i>
+          <input type="text" id="chat-search" placeholder="Sohbet veya kişi ara...">
+        </div>
+      </div>
+
+      <!-- Tabs (Odalar & Kişiler) -->
+      <div class="nav-tabs">
+        <button class="nav-tab active" data-tab="rooms">
+          <i class="fa-solid fa-hashtag"></i> Odalar
+        </button>
+        <button class="nav-tab" data-tab="users">
+          <i class="fa-solid fa-users"></i> Kişiler (<span id="online-count">0</span>)
+        </button>
+      </div>
+
+      <!-- Chat Lists -->
+      <div class="sidebar-content">
+        <!-- Rooms List -->
+        <div class="chat-list tab-content active" id="rooms-list">
+          <!-- Dynamic Rooms -->
+        </div>
+
+        <!-- Online Direct Messages List -->
+        <div class="chat-list tab-content" id="users-list">
+          <!-- Dynamic Users -->
+        </div>
+      </div>
+    </aside>
+
+    <!-- Chat Area -->
+    <main class="chat-area" id="chat-area">
+      <!-- Mobile Back Button & Chat Header -->
+      <header class="chat-header">
+        <button class="icon-btn mobile-back-btn" id="mobile-back-btn">
+          <i class="fa-solid fa-arrow-left"></i>
+        </button>
+        <div class="active-chat-info">
+          <div class="avatar active-avatar" id="active-chat-avatar">💬</div>
+          <div class="details">
+            <h3 id="active-chat-title">Genel Sohbet</h3>
+            <p id="active-chat-status">Herkes için sohbet odası</p>
+          </div>
+        </div>
+        <div class="chat-header-actions">
+          <button class="icon-btn" id="scroll-bottom-btn" title="En Alta Git">
+            <i class="fa-solid fa-angles-down"></i>
+          </button>
+        </div>
+      </header>
+
+      <!-- Message History Container -->
+      <div class="messages-container" id="messages-container">
+        <div class="welcome-box">
+          <div class="welcome-icon">💬</div>
+          <h3>Sohbete Hoş Geldiniz!</h3>
+          <p>Mesajlaşmaya başlamak için aşağıdan ilk mesajınızı yazın.</p>
+        </div>
+        <!-- Messages injected here -->
+      </div>
+
+      <!-- Typing Indicator -->
+      <div class="typing-bar" id="typing-bar" style="display: none;">
+        <span class="typing-dots">
+          <span></span><span></span><span></span>
+        </span>
+        <span id="typing-text">Biri yazıyor...</span>
+      </div>
+
+      <!-- Reply Banner -->
+      <div class="reply-banner" id="reply-banner" style="display: none;">
+        <div class="reply-content">
+          <i class="fa-solid fa-reply"></i>
+          <div class="reply-text-wrap">
+            <strong id="reply-sender">Kullanıcı</strong>
+            <p id="reply-preview">Mesaj metni...</p>
+          </div>
+        </div>
+        <button class="icon-btn close-reply-btn" id="cancel-reply-btn">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <!-- Input Bar -->
+      <footer class="chat-input-bar">
+        <!-- Emoji Button -->
+        <button class="icon-btn" id="emoji-btn" title="Emoji Seç">
+          <i class="fa-regular fa-face-smile"></i>
+        </button>
+
+        <!-- Attachment Button -->
+        <button class="icon-btn" id="attach-btn" title="Dosya / Resim Gönder">
+          <i class="fa-solid fa-paperclip"></i>
+        </button>
+        <input type="file" id="file-input" style="display:none;" accept="image/*,audio/*,video/*,.pdf,.doc,.docx,.txt,.zip,.rar">
+
+        <!-- Message Textarea -->
+        <div class="input-wrapper">
+          <textarea id="message-input" rows="1" placeholder="Bir mesaj yazın..." maxlength="2000"></textarea>
+        </div>
+
+        <!-- Voice Record Button -->
+        <button class="icon-btn voice-btn" id="voice-btn" title="Ses Kaydı Gönder">
+          <i class="fa-solid fa-microphone"></i>
+        </button>
+
+        <!-- Send Button -->
+        <button class="icon-btn send-btn" id="send-btn" title="Gönder">
+          <i class="fa-solid fa-paper-plane"></i>
+        </button>
+      </footer>
+
+      <!-- Voice Recording Bar (Hidden by default) -->
+      <div class="recording-bar" id="recording-bar" style="display: none;">
+        <div class="rec-indicator">
+          <span class="rec-dot"></span>
+          <span>Ses Kaydediliyor...</span>
+          <span id="rec-timer">00:00</span>
+        </div>
+        <div class="rec-actions">
+          <button class="btn-cancel-rec" id="cancel-rec-btn">
+            <i class="fa-solid fa-trash"></i> İptal
+          </button>
+          <button class="btn-send-rec" id="send-rec-btn">
+            <i class="fa-solid fa-paper-plane"></i> Gönder
+          </button>
+        </div>
+      </div>
+
+      <!-- Emoji Picker Panel -->
+      <div class="emoji-picker" id="emoji-picker" style="display: none;">
+        <div class="emoji-grid">
+          <span>😀</span><span>😃</span><span>😄</span><span>😁</span><span>😆</span><span>😂</span><span>🤣</span><span>😊</span>
+          <span>😇</span><span>🙂</span><span>🙃</span><span>😉</span><span>😌</span><span>😍</span><span>🥰</span><span>😘</span>
+          <span>😗</span><span>😙</span><span>😚</span><span>😋</span><span>😛</span><span>😜</span><span>🤪</span><span>😝</span>
+          <span>🤗</span><span>🤭</span><span>🤫</span><span>🤔</span><span>🤐</span><span>🤨</span><span>😐</span><span>😑</span>
+          <span>😶</span><span>😏</span><span>😒</span><span>🙄</span><span>😬</span><span>🤥</span><span>😌</span><span>😔</span>
+          <span>😪</span><span>🤤</span><span>😴</span><span>😷</span><span>🤒</span><span>🤕</span><span>🤢</span><span>🤮</span>
+          <span>🥳</span><span>😎</span><span>🤓</span><span>🧐</span><span>😕</span><span>😟</span><span>🙁</span><span>😮</span>
+          <span>👍</span><span>👎</span><span>👌</span><span>✌️</span><span>🤞</span><span>🤟</span><span>🤘</span><span>🤙</span>
+          <span>👏</span><span>🙌</span><span>👐</span><span>🤲</span><span>🤝</span><span>🙏</span><span>💪</span><span>🔥</span>
+          <span>❤️</span><span>🧡</span><span>💛</span><span>💚</span><span>💙</span><span>💜</span><span>🖤</span><span>🤍</span>
+          <span>✨</span><span>🎉</span><span>🚀</span><span>⭐</span><span>💯</span><span>⚡</span><span>☕</span><span>🍕</span>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Image Lightbox Modal -->
+  <div id="image-modal" class="modal-overlay" style="display: none;">
+    <div class="image-modal-content">
+      <button class="icon-btn close-modal-btn" id="close-image-modal">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+      <img id="modal-img" src="" alt="Büyütülmüş Resim">
+    </div>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
