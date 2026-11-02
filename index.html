@@ -24,11 +24,23 @@
       </div>
       <form id="login-form">
         <div class="form-group">
-          <label for="username-input">Kullanıcı Adınız</label>
-          <div class="input-with-icon">
-            <i class="fa-solid fa-user"></i>
-            <input type="text" id="username-input" placeholder="Örn: Ahmet, Furkan, Zeynep..." maxlength="20" required autofocus>
+          <label for="username-input">Kullanıcı Adınız & Benzersiz ID</label>
+          <div class="id-input-wrap">
+            <div class="input-with-icon" style="flex: 1;">
+              <i class="fa-solid fa-user"></i>
+              <input type="text" id="username-input" placeholder="Örn: Ahmet, Furkan, Zeynep..." maxlength="20" required autofocus>
+            </div>
+            <div class="user-id-chip" title="Benzersiz ID Etiketiniz">
+              <span class="hash-symbol">#</span>
+              <input type="text" id="user-tag-input" maxlength="4" placeholder="4401" title="Özel 4 haneli ID belirleyebilirsiniz">
+              <button type="button" id="random-tag-btn" class="icon-btn-chip" title="Rastgele ID Oluştur">
+                <i class="fa-solid fa-dice"></i>
+              </button>
+            </div>
           </div>
+          <small style="display:block; margin-top:6px; color:var(--text-muted); font-size:11px;">
+            Her kullanıcının <b>#1042</b> gibi benzersiz bir ID'si olur. Arkadaşlarınız sizi adınızla veya ID'nizle bulabilir.
+          </small>
         </div>
         <div class="form-group">
           <label>Avatar Rengi Seçin</label>
@@ -59,7 +71,10 @@
         <div class="my-profile">
           <div class="avatar my-avatar" id="my-avatar">U</div>
           <div class="my-info">
-            <span class="my-name" id="my-name-display">Kullanıcı</span>
+            <div class="my-name-row">
+              <span class="my-name" id="my-name-display">Kullanıcı</span>
+              <span class="my-tag-pill" id="my-tag-display" title="ID'yi Kopyala">#4401 <i class="fa-regular fa-copy"></i></span>
+            </div>
             <span class="my-status"><span class="status-indicator online"></span> Çevrimiçi</span>
           </div>
         </div>
@@ -77,7 +92,7 @@
       <div class="search-box-wrap">
         <div class="search-box">
           <i class="fa-solid fa-magnifying-glass"></i>
-          <input type="text" id="chat-search" placeholder="Sohbet veya kişi ara...">
+          <input type="text" id="chat-search" placeholder="İsim veya #ID ile ara...">
         </div>
       </div>
 
@@ -134,6 +149,15 @@
           </button>
         </div>
       </header>
+
+      <!-- Notification Permission Banner -->
+      <div id="notif-permission-banner" class="notif-banner" style="display: none;">
+        <div class="notif-banner-content">
+          <i class="fa-solid fa-bell"></i>
+          <span>Mesaj ve aramalarda anında ses ve bildirim almak için izin verin.</span>
+        </div>
+        <button id="enable-notif-btn" class="notif-enable-btn">Bildirimleri Aç</button>
+      </div>
 
       <!-- In-Chat Search Bar -->
       <div class="in-chat-search-bar" id="in-chat-search-bar" style="display: none;">
@@ -223,71 +247,61 @@
         </div>
       </div>
 
-      <!-- Rich Emoji Picker Panel -->
-      <div class="emoji-picker" id="emoji-picker" style="display: none;">
-        <div class="emoji-tabs">
-          <button type="button" class="emoji-tab-btn active" data-target="cat-faces" title="Yüzler">😊</button>
-          <button type="button" class="emoji-tab-btn" data-target="cat-gestures" title="El Hareketleri">👍</button>
-          <button type="button" class="emoji-tab-btn" data-target="cat-hearts" title="Kalpler">❤️</button>
-          <button type="button" class="emoji-tab-btn" data-target="cat-fire" title="Popüler">🔥</button>
-          <button type="button" class="emoji-tab-btn" data-target="cat-objects" title="Nesneler">🎮</button>
-          <button type="button" class="emoji-tab-btn" data-target="cat-animals" title="Hayvanlar">🐶</button>
+      <!-- Categorized Emoji Picker -->
+      <div class="emoji-picker-container" id="emoji-picker" style="display: none;">
+        <div class="emoji-nav-tabs">
+          <button class="emoji-nav-btn active" data-cat="faces" title="Yüzler & İfadeler">😊</button>
+          <button class="emoji-nav-btn" data-cat="gestures" title="El Hareketleri">👍</button>
+          <button class="emoji-nav-btn" data-cat="hearts" title="Kalpler & Aşk">❤️</button>
+          <button class="emoji-nav-btn" data-cat="fire" title="Ateş & Havalı">🔥</button>
+          <button class="emoji-nav-btn" data-cat="objects" title="Aktivite & Eşyalar">🎮</button>
+          <button class="emoji-nav-btn" data-cat="animals" title="Hayvanlar & Doğa">🐶</button>
         </div>
-        <div class="emoji-scroll-area">
-          <div class="emoji-cat-title">Yüzler & İfadeler</div>
-          <div class="emoji-grid" id="cat-faces">
+        <div class="emoji-scroll-content">
+          <div class="emoji-grid-section active" id="cat-faces">
             <span>😀</span><span>😃</span><span>😄</span><span>😁</span><span>😆</span><span>😅</span><span>😂</span><span>🤣</span>
             <span>🥲</span><span>🥹</span><span>☺️</span><span>😊</span><span>😇</span><span>🙂</span><span>🙃</span><span>😉</span>
             <span>😌</span><span>😍</span><span>🥰</span><span>😘</span><span>😗</span><span>😙</span><span>😚</span><span>😋</span>
-            <span>😛</span><span>😜</span><span>🤪</span><span>😝</span><span>🤑</span><span>🤗</span><span>🤭</span><span>🤫</span>
-            <span>🤔</span><span>🤐</span><span>🤨</span><span>😐</span><span>😑</span><span>😶</span><span>😏</span><span>😒</span>
-            <span>🙄</span><span>😬</span><span>😮‍💨</span><span>🤥</span><span>😌</span><span>😔</span><span>😪</span><span>🤤</span>
-            <span>😴</span><span>😷</span><span>🤒</span><span>🤕</span><span>🤢</span><span>🤮</span><span>🤧</span><span>🥵</span>
-            <span>🥶</span><span>🥴</span><span>😵</span><span>🤯</span><span>🤠</span><span>🥳</span><span>🥸</span><span>😎</span>
-            <span>🤓</span><span>🧐</span><span>😕</span><span>😟</span><span>🙁</span><span>😮</span><span>😯</span><span>😲</span>
-            <span>😳</span><span>🥺</span><span>😦</span><span>😧</span><span>😨</span><span>😰</span><span>😥</span><span>😢</span>
-            <span>😭</span><span>😱</span><span>😖</span><span>😣</span><span>😞</span><span>😓</span><span>😩</span><span>😫</span>
-            <span>🥱</span><span>😤</span><span>😡</span><span>😠</span><span>🤬</span><span>😈</span><span>👿</span><span>💀</span>
+            <span>😛</span><span>😝</span><span>😜</span><span>🤪</span><span>🤨</span><span>🧐</span><span>🤓</span><span>😎</span>
+            <span>🥸</span><span>🤩</span><span>🥳</span><span>😏</span><span>😒</span><span>😞</span><span>😔</span><span>😟</span>
+            <span>😕</span><span>🙁</span><span>☹️</span><span>😣</span><span>😖</span><span>😫</span><span>😩</span><span>🥺</span>
+            <span>😢</span><span>😭</span><span>😮‍💨</span><span>😤</span><span>😠</span><span>😡</span><span>🤬</span><span>🤯</span>
+            <span>😳</span><span>🥵</span><span>🥶</span><span>😱</span><span>😨</span><span>😰</span><span>😥</span><span>😓</span>
+            <span>🤗</span><span>🤔</span><span>🫣</span><span>🤭</span><span>🫢</span><span>🫡</span><span>🤫</span><span>🫠</span>
+            <span>🤥</span><span>😶</span><span>🫥</span><span>😐</span><span>😑</span><span>😬</span><span>🙄</span><span>😯</span>
+            <span>😦</span><span>😧</span><span>😮</span><span>😲</span><span>🥱</span><span>😴</span><span>🤤</span><span>😪</span>
+            <span>😵</span><span>😵‍💫</span><span>🤐</span><span>🥴</span><span>🤢</span><span>🤮</span><span>🤧</span><span>😷</span>
+            <span>🤒</span><span>🤕</span><span>🤑</span><span>🤠</span><span>😈</span><span>👿</span><span>👹</span><span>👺</span>
+            <span>🤡</span><span>💩</span><span>👻</span><span>💀</span><span>☠️</span><span>👽</span><span>👾</span><span>🤖</span>
           </div>
-
-          <div class="emoji-cat-title">El & Beden Hareketleri</div>
-          <div class="emoji-grid" id="cat-gestures">
-            <span>👋</span><span>🤚</span><span>🖐️</span><span>✋</span><span>🖖</span><span>🫱</span><span>🫲</span><span>🫸</span>
-            <span>🫷</span><span>🫵</span><span>👉</span><span>👈</span><span>☝️</span><span>👆</span><span>👇</span><span>✌️</span>
-            <span>🤞</span><span>🫰</span><span>🤟</span><span>🤘</span><span>🤙</span><span>👌</span><span>🤌</span><span>🤏</span>
-            <span>👍</span><span>👎</span><span>✊</span><span>👊</span><span>🤛</span><span>🤜</span><span>👏</span><span>🙌</span>
-            <span>🫶</span><span>👐</span><span>🤲</span><span>🤝</span><span>🙏</span><span>✍️</span><span>💅</span><span>🤳</span>
-            <span>💪</span><span>🦾</span><span>🦵</span><span>🦶</span><span>👂</span><span>🦻</span><span>👃</span><span>👀</span>
+          <div class="emoji-grid-section" id="cat-gestures">
+            <span>👍</span><span>👎</span><span>👊</span><span>✊</span><span>🤛</span><span>🤜</span><span>👏</span><span>🙌</span>
+            <span>👐</span><span>🤲</span><span>🤝</span><span>🙏</span><span>✌️</span><span>🤞</span><span>🤟</span><span>🤘</span>
+            <span>👌</span><span>🤌</span><span>🤏</span><span>👈</span><span>👉</span><span>👆</span><span>👇</span><span>☝️</span>
+            <span>✋</span><span>🤚</span><span>🖐️</span><span>🖖</span><span>👋</span><span>🤙</span><span>🫲</span><span>🫱</span>
+            <span>💪</span><span>🦾</span><span>🖕</span><span>✍️</span><span>🤳</span><span>💅</span><span>👀</span><span>👁️</span>
           </div>
-
-          <div class="emoji-cat-title">Kalpler & Aşk</div>
-          <div class="emoji-grid" id="cat-hearts">
+          <div class="emoji-grid-section" id="cat-hearts">
             <span>❤️</span><span>🧡</span><span>💛</span><span>💚</span><span>💙</span><span>💜</span><span>🖤</span><span>🤍</span>
             <span>🤎</span><span>💔</span><span>❤️‍🔥</span><span>❤️‍🩹</span><span>❣️</span><span>💕</span><span>💞</span><span>💓</span>
-            <span>💗</span><span>💖</span><span>💘</span><span>💝</span><span>💟</span><span>💌</span><span>💋</span><span>🌹</span>
+            <span>💗</span><span>💖</span><span>💘</span><span>💝</span><span>💟</span><span>♥️</span><span>💋</span><span>💌</span>
           </div>
-
-          <div class="emoji-cat-title">Popüler & Kutlama</div>
-          <div class="emoji-grid" id="cat-fire">
-            <span>🔥</span><span>💯</span><span>✨</span><span>⭐</span><span>🌟</span><span>⚡</span><span>💥</span><span>🎉</span>
-            <span>🎊</span><span>🎈</span><span>🎁</span><span>🏆</span><span>🥇</span><span>🥈</span><span>🥉</span><span>👑</span>
-            <span>💎</span><span>💸</span><span>💰</span><span>💵</span><span>🚀</span><span>🛸</span><span>🚨</span><span>🎯</span>
+          <div class="emoji-grid-section" id="cat-fire">
+            <span>🔥</span><span>✨</span><span>⭐</span><span>🌟</span><span>💫</span><span>💥</span><span>💢</span><span>💯</span>
+            <span>🎉</span><span>🎊</span><span>🎈</span><span>🍾</span><span>🏆</span><span>👑</span><span>💎</span><span>⚡</span>
+            <span>🚀</span><span>🎯</span><span>🥇</span><span>🥈</span><span>🥉</span><span>🎖️</span><span>🏵️</span><span>🔮</span>
           </div>
-
-          <div class="emoji-cat-title">Oyun, Eğlence & Nesneler</div>
-          <div class="emoji-grid" id="cat-objects">
-            <span>🎮</span><span>🕹️</span><span>🎲</span><span>♟️</span><span>🧩</span><span>🎧</span><span>🎵</span><span>🎶</span>
-            <span>🎸</span><span>🎹</span><span>🥁</span><span>⚽</span><span>🏀</span><span>🏈</span><span>⚾</span><span>🎾</span>
-            <span>📱</span><span>💻</span><span>⌨️</span><span>🖥️</span><span>📸</span><span>📹</span><span>🎥</span><span>📺</span>
-            <span>☕</span><span>🍕</span><span>🍔</span><span>🍟</span><span>🌭</span><span>🍿</span><span>🍩</span><span>🍦</span>
-            <span>🚗</span><span>🏎️</span><span>🏍️</span><span>🚲</span><span>✈️</span><span>🔑</span><span>🔒</span><span>🔔</span>
+          <div class="emoji-grid-section" id="cat-objects">
+            <span>🎮</span><span>🕹️</span><span>🎲</span><span>🎯</span><span>🎳</span><span>⚽</span><span>🏀</span><span>🏈</span>
+            <span>⚾</span><span>🎾</span><span>🏐</span><span>🏉</span><span>🥊</span><span>🎱</span><span>🏓</span><span>🏸</span>
+            <span>🚗</span><span>🏎️</span><span>🏍️</span><span>✈️</span><span>🚀</span><span>📱</span><span>💻</span><span>🎧</span>
+            <span>📷</span><span>🎵</span><span>🎶</span><span>🎙️</span><span>🔔</span><span>💡</span><span>☕</span><span>🍕</span>
           </div>
-
-          <div class="emoji-cat-title">Hayvanlar & Doğa</div>
-          <div class="emoji-grid" id="cat-animals">
+          <div class="emoji-grid-section" id="cat-animals">
             <span>🐶</span><span>🐱</span><span>🐭</span><span>🐹</span><span>🐰</span><span>🦊</span><span>🐻</span><span>🐼</span>
-            <span>🦁</span><span>🐯</span><span>🐨</span><span>🐵</span><span>🐒</span><span>🐔</span><span>🐧</span><span>🐦</span>
-            <span>🐺</span><span>🐗</span><span>🐴</span><span>🦄</span><span>🐝</span><span>🐛</span><span>🦋</span><span>🐌</span>
+            <span>🐨</span><span>🐯</span><span>🦁</span><span>🐮</span><span>🐷</span><span>🐸</span><span>🐵</span><span>🐔</span>
+            <span>🐧</span><span>🐦</span><span>🦅</span><span>🦆</span><span>🦉</span><span>🦇</span><span>🐺</span><span>🐗</span>
+            <span>🐴</span><span>🦄</span><span>🐝</span><span>🐛</span><span>🦋</span><span>🐌</span><span>🐞</span><span>🐜</span>
             <span>☀️</span><span>🌙</span><span>⭐</span><span>☁️</span><span>🌧️</span><span>⛈️</span><span>❄️</span><span>🌈</span>
           </div>
         </div>
@@ -305,6 +319,18 @@
     </div>
   </div>
 
+  <!-- User Call Picker Modal (Genel Sohbetten arama yaparken kimi aramak istediğini sorar) -->
+  <div id="call-picker-modal" class="modal-overlay" style="display: none;">
+    <div class="call-card call-picker-card">
+      <div class="call-picker-header">
+        <h3 id="call-picker-title">Arama Başlat</h3>
+        <button class="icon-btn close-btn-sm" id="close-call-picker-btn"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <p class="call-picker-sub">Aramak istediğiniz kişiyi seçin:</p>
+      <div id="call-picker-list" class="call-picker-list"></div>
+    </div>
+  </div>
+
   <!-- Incoming Call Modal (WhatsApp Style) -->
   <div id="incoming-call-modal" class="modal-overlay" style="display: none;">
     <div class="call-card incoming-call-card">
@@ -312,7 +338,8 @@
         <div class="avatar call-avatar-pulse" id="incoming-call-avatar">👤</div>
       </div>
       <h3 id="incoming-caller-name">Arkadaşın</h3>
-      <p id="incoming-call-type">WhatsApp Araması...</p>
+      <div id="incoming-call-badge" class="call-badge-pill">📞 SESLİ ARAMA</div>
+      <p id="incoming-call-type">WhatsApp Araması Geliyor...</p>
       <div class="call-modal-actions">
         <button class="call-circle-btn decline-btn" id="decline-call-btn" title="Reddet">
           <i class="fa-solid fa-phone-slash"></i>
@@ -326,7 +353,7 @@
 
   <!-- Active Call Video / Voice Screen -->
   <div id="active-call-modal" class="modal-overlay" style="display: none;">
-    <div class="active-call-screen">
+    <div class="active-call-screen" id="active-call-screen-box">
       <div class="call-screen-header">
         <div class="call-peer-info">
           <span id="active-call-peer-name">Arkadaşın</span>
@@ -339,18 +366,27 @@
         <video id="remote-video" autoplay playsinline></video>
         <video id="local-video" autoplay playsinline muted></video>
         <div id="audio-call-display" class="audio-call-display" style="display: none;">
-          <div class="avatar call-large-avatar" id="audio-call-avatar">👤</div>
-          <p>Sesli Arama Sürüyor...</p>
+          <div class="call-pulse-wrap">
+            <div class="avatar call-large-avatar" id="audio-call-avatar">👤</div>
+          </div>
+          <h3 id="audio-call-name" class="audio-call-title">Arkadaşın</h3>
+          <p id="audio-call-status" class="audio-call-subtitle">Sesli WhatsApp Görüşmesi</p>
         </div>
       </div>
 
       <!-- Controls -->
       <div class="call-controls-bar">
-        <button class="call-control-btn" id="toggle-mic-btn" title="Mikrofon">
+        <button class="call-control-btn" id="toggle-mic-btn" title="Mikrofon Aç/Kapat">
           <i class="fa-solid fa-microphone"></i>
         </button>
-        <button class="call-control-btn" id="toggle-cam-btn" title="Kamera">
+        <button class="call-control-btn" id="toggle-cam-btn" title="Kamera Aç/Kapat">
           <i class="fa-solid fa-video"></i>
+        </button>
+        <button class="call-control-btn" id="flip-cam-btn" title="Kamerayı Çevir (Ön / Arka)">
+          <i class="fa-solid fa-camera-rotate"></i>
+        </button>
+        <button class="call-control-btn" id="share-screen-btn" title="Ekran Paylaş">
+          <i class="fa-solid fa-desktop"></i>
         </button>
         <button class="call-control-btn hangup-btn" id="hangup-call-btn" title="Aramayı Kapat">
           <i class="fa-solid fa-phone-slash"></i>
@@ -358,6 +394,11 @@
       </div>
     </div>
   </div>
+
+  <!-- Preloaded Audio Elements & Toast -->
+  <audio id="audio-notif" preload="auto"></audio>
+  <audio id="audio-ringtone" loop preload="auto"></audio>
+  <div id="toast-container" class="toast-container"></div>
 
   <script src="/static/app.js"></script>
 </body>
