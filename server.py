@@ -262,6 +262,46 @@ def get_rooms():
     conn.close()
     return rooms
 
+@app.get("/api/ice")
+def get_ice_servers():
+    """WebRTC ICE sunucularini dondurur. TURN bilgileri ortam degiskenlerinden okunur."""
+    servers = [
+        {"urls": "stun:stun.l.google.com:19302"},
+        {"urls": "stun:stun1.l.google.com:19302"},
+    ]
+
+    # 1) Metered.ca ucretsiz hesap: METERED_DOMAIN + METERED_API_KEY
+    domain = os.environ.get("METERED_DOMAIN", "").strip()
+    api_key = os.environ.get("METERED_API_KEY", "").strip()
+    if domain and api_key:
+        try:
+            import urllib.request
+            url = f"https://{domain}/api/v1/turn/credentials?apiKey={api_key}"
+            with urllib.request.urlopen(url, timeout=6) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+            if isinstance(data, list) and data:
+                return {"iceServers": servers + data, "turn": True}
+        except Exception as e:
+            print("Metered TURN alinamadi:", e)
+
+    # 2) Manuel TURN: TURN_URLS (virgulle ayrilmis) + TURN_USERNAME + TURN_CREDENTIAL
+    turn_urls = os.environ.get("TURN_URLS", "").strip()
+    if turn_urls:
+        servers.append({
+            "urls": [u.strip() for u in turn_urls.split(",") if u.strip()],
+            "username": os.environ.get("TURN_USERNAME", ""),
+            "credential": os.environ.get("TURN_CREDENTIAL", ""),
+        })
+        return {"iceServers": servers, "turn": True}
+
+    # 3) Yedek: herkese acik OpenRelay (garanti degil)
+    servers += [
+        {"urls": "turn:openrelay.metered.ca:80", "username": "openrelayproject", "credential": "openrelayproject"},
+        {"urls": "turn:openrelay.metered.ca:443", "username": "openrelayproject", "credential": "openrelayproject"},
+        {"urls": "turns:openrelay.metered.ca:443", "username": "openrelayproject", "credential": "openrelayproject"},
+    ]
+    return {"iceServers": servers, "turn": False}
+
 @app.get("/api/messages")
 @app.get("/api/messages/{room_id}")
 def get_messages(room_id: str = "genel", limit: int = 100):

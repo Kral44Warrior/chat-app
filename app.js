@@ -143,7 +143,7 @@ let currentCall = {
 };
 let iceCandidateQueue = [];
 
-const RTC_CONFIG = {
+let RTC_CONFIG = {
   iceServers: [
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' },
@@ -579,6 +579,7 @@ function enterApp() {
 
   initNotifications();
   initEmojiPicker();
+  loadIceServers();
 
   renderRoomsList();
   loadRooms().finally(() => {
@@ -1374,6 +1375,54 @@ async function handleCallResponse(data) {
 }
 
 let remoteStream = null;
+let statsInterval = null;
+
+async function loadIceServers() {
+  try {
+    const res = await fetch('/api/ice');
+    if (res.ok) {
+      const data = await res.json();
+      if (data && Array.isArray(data.iceServers) && data.iceServers.length) {
+        RTC_CONFIG = { iceServers: data.iceServers, iceCandidatePoolSize: 4 };
+      }
+    }
+  } catch (e) {
+    console.warn('ICE sunucuları alınamadı, varsayılanlar kullanılacak:', e);
+  }
+}
+
+function setCallDebug(text) {
+  let el = document.getElementById('call-debug');
+  if (!el) {
+    const box = document.getElementById('active-call-screen-box');
+    if (!box) return;
+    el = document.createElement('div');
+    el.id = 'call-debug';
+    el.style.cssText = 'position:absolute;top:44px;left:20px;z-index:20;font-size:12px;color:#fbbf24;background:rgba(0,0,0,0.55);padding:4px 8px;border-radius:8px;max-width:90%;';
+    box.appendChild(el);
+  }
+  el.textContent = text;
+}
+
+function startStatsMonitor() {
+  if (statsInterval) clearInterval(statsInterval);
+  statsInterval = setInterval(async () => {
+    if (!peerConnection) return;
+    try {
+      const stats = await peerConnection.getStats();
+      let inAudio = 0, outAudio = 0, relay = false;
+      stats.forEach(r => {
+        if (r.type === 'inbound-rtp' && r.kind === 'audio') inAudio = r.bytesReceived || 0;
+        if (r.type === 'outbound-rtp' && r.kind === 'audio') outAudio = r.bytesSent || 0;
+        if (r.type === 'candidate-pair' && r.nominated && r.state === 'succeeded') {
+          const lc = stats.get(r.localCandidateId);
+          if (lc && lc.candidateType === 'relay') relay = true;
+        }
+      });
+      setCallDebug(`Bağlantı: ${peerConnection.iceConnectionState}${relay ? ' (TURN)' : ''} | Giden ses: ${Math.round(outAudio / 1024)} KB | Gelen ses: ${Math.round(inAudio / 1024)} KB`);
+    } catch (e) {}
+  }, 1500);
+}
 
 async function initPeerConnection(isAnswerer) {
   if (peerConnection) {
@@ -1383,6 +1432,8 @@ async function initPeerConnection(isAnswerer) {
 
   remoteStream = new MediaStream();
   peerConnection = new RTCPeerConnection(RTC_CONFIG);
+  setCallDebug('Bağlanıyor...');
+  startStatsMonitor();
 
   if (localStream) {
     localStream.getTracks().forEach(track => {
@@ -1585,6 +1636,13 @@ function endCall(sendSignal = true) {
     clearInterval(currentCall.timerInterval);
     currentCall.timerInterval = null;
   }
+
+  if (statsInterval) {
+    clearInterval(statsInterval);
+    statsInterval = null;
+  }
+  const dbg = document.getElementById('call-debug');
+  if (dbg) dbg.remove();
 
   if (isScreenSharing) {
     stopScreenShare();
