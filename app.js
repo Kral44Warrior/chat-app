@@ -1252,9 +1252,14 @@ async function startCallTo(targetUser, isVideo = false) {
 
   try {
     localStream = await navigator.mediaDevices.getUserMedia({
-      audio: true,
+      audio: {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true
+      },
       video: isVideo ? { facingMode: { ideal: currentFacingMode }, width: { ideal: 640 }, height: { ideal: 480 } } : false
     });
+    localStream.getAudioTracks().forEach(t => { t.enabled = true; });
   } catch (err) {
     console.error('Kamera/Mikrofon izni alınamadı:', err);
     showToast('Mikrofon/Kamera erişim izni verilmedi.');
@@ -1330,9 +1335,14 @@ async function answerCall(accepted) {
   const callerName = currentCall.peerUser.split('#')[0];
   try {
     localStream = await navigator.mediaDevices.getUserMedia({
-      audio: true,
+      audio: {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true
+      },
       video: currentCall.isVideo ? { facingMode: { ideal: currentFacingMode }, width: { ideal: 640 }, height: { ideal: 480 } } : false
     });
+    localStream.getAudioTracks().forEach(t => { t.enabled = true; });
   } catch (err) {
     showToast('Kamera veya mikrofon açılamadı.');
     answerCall(false);
@@ -1381,24 +1391,45 @@ async function initPeerConnection(isAnswerer) {
   }
 
   peerConnection.ontrack = (event) => {
-    console.log('WebRTC ontrack:', event.track.kind);
+    console.log('WebRTC ontrack received:', event.track.kind);
     const remoteVideo = document.getElementById('remote-video');
     const remoteAudio = document.getElementById('remote-audio');
 
-    if (event.streams && event.streams[0]) {
-      remoteStream = event.streams[0];
-    } else {
-      remoteStream.addTrack(event.track);
-    }
+    if (event.track.kind === 'video') {
+      if (remoteVideo) {
+        let vStream = remoteVideo.srcObject;
+        if (!vStream || !(vStream instanceof MediaStream)) {
+          vStream = new MediaStream();
+          remoteVideo.srcObject = vStream;
+        }
+        vStream.addTrack(event.track);
+        remoteVideo.muted = true; // Video element must be muted so mobile browser does NOT block autoplay!
+        remoteVideo.play().catch(e => console.warn('remoteVideo play:', e));
+      }
+    } else if (event.track.kind === 'audio') {
+      event.track.enabled = true;
+      const aStream = new MediaStream([event.track]);
 
-    if (remoteVideo) {
-      remoteVideo.srcObject = remoteStream;
-      remoteVideo.muted = false;
-      remoteVideo.play().catch(e => console.warn('video play:', e));
-    }
-    if (remoteAudio) {
-      remoteAudio.srcObject = remoteStream;
-      remoteAudio.play().catch(e => console.warn('audio play:', e));
+      if (remoteAudio) {
+        remoteAudio.srcObject = aStream;
+        remoteAudio.volume = 1.0;
+        remoteAudio.muted = false;
+        remoteAudio.play().catch(e => console.warn('remoteAudio play:', e));
+      }
+
+      // Direct Web Audio API hardware output bypass
+      try {
+        if (!globalAudioCtx) {
+          globalAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        if (globalAudioCtx.state === 'suspended') {
+          globalAudioCtx.resume();
+        }
+        const src = globalAudioCtx.createMediaStreamSource(aStream);
+        src.connect(globalAudioCtx.destination);
+      } catch (err) {
+        console.warn('Web Audio route err:', err);
+      }
     }
   };
 
@@ -1457,7 +1488,10 @@ async function handleWebRTCSignal(data) {
       try { await peerConnection.addIceCandidate(new RTCIceCandidate(cand)); } catch (e) {}
     }
 
-    const answer = await peerConnection.createAnswer();
+    const answer = await peerConnection.createAnswer({
+      offerToReceiveAudio: true,
+      offerToReceiveVideo: true
+    });
     await peerConnection.setLocalDescription(answer);
 
     socket.send(JSON.stringify({
@@ -1970,6 +2004,20 @@ function setupEventListeners() {
       if (e.target === imageModal) {
         imageModal.style.display = 'none';
         if (modalImg) modalImg.src = '';
+      }
+    });
+  }
+
+  if (activeCallModal) {
+    activeCallModal.addEventListener('click', () => {
+      const remAudio = document.getElementById('remote-audio');
+      if (remAudio) {
+        remAudio.muted = false;
+        remAudio.volume = 1.0;
+        remAudio.play().catch(() => {});
+      }
+      if (globalAudioCtx && globalAudioCtx.state === 'suspended') {
+        globalAudioCtx.resume();
       }
     });
   }
