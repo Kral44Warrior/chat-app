@@ -1377,6 +1377,7 @@ async function handleCallResponse(data) {
 
 let remoteStream = null;
 let statsInterval = null;
+let iceCandidatesReceivedCount = 0;
 
 async function loadIceServers() {
   try {
@@ -1420,7 +1421,7 @@ function startStatsMonitor() {
           if (lc && lc.candidateType === 'relay') relay = true;
         }
       });
-      setCallDebug(`Bağlantı: ${peerConnection.iceConnectionState}${relay ? ' (TURN)' : ''} | Sinyal: ${peerConnection.signalingState} | Giden ses: ${Math.round(outAudio / 1024)} KB | Gelen ses: ${Math.round(inAudio / 1024)} KB`);
+      setCallDebug(`Bağlantı: ${peerConnection.iceConnectionState}${relay ? ' (TURN)' : ''} | Sinyal: ${peerConnection.signalingState} | Adaylar: ${iceCandidatesReceivedCount} | Giden ses: ${Math.round(outAudio / 1024)} KB | Gelen ses: ${Math.round(inAudio / 1024)} KB`);
     } catch (e) {}
   }, 1000);
 }
@@ -1432,6 +1433,7 @@ async function initPeerConnection(isAnswerer) {
   }
 
   remoteStream = new MediaStream();
+  iceCandidatesReceivedCount = 0;
   peerConnection = new RTCPeerConnection(RTC_CONFIG);
   setCallDebug(isAnswerer ? 'Cevaplayıcı: Bağlantı kuruluyor...' : 'Arayan: Teklif hazırlanıyor...');
   startStatsMonitor();
@@ -1552,7 +1554,12 @@ async function handleWebRTCSignal(data) {
       while (iceCandidateQueue.length > 0) {
         const cand = iceCandidateQueue.shift();
         if (cand && cand.candidate) {
-          try { await peerConnection.addIceCandidate(new RTCIceCandidate(cand)); } catch (e) {}
+          try {
+            await peerConnection.addIceCandidate(cand);
+            iceCandidatesReceivedCount++;
+          } catch (e) {
+            console.warn('Queued candidate add error:', e);
+          }
         }
       }
 
@@ -1573,7 +1580,12 @@ async function handleWebRTCSignal(data) {
         while (iceCandidateQueue.length > 0) {
           const cand = iceCandidateQueue.shift();
           if (cand && cand.candidate) {
-            try { await peerConnection.addIceCandidate(new RTCIceCandidate(cand)); } catch (e) {}
+            try {
+              await peerConnection.addIceCandidate(cand);
+              iceCandidatesReceivedCount++;
+            } catch (e) {
+              console.warn('Queued candidate add error:', e);
+            }
           }
         }
       }
@@ -1582,8 +1594,11 @@ async function handleWebRTCSignal(data) {
       if (cand && cand.candidate) {
         if (peerConnection && peerConnection.remoteDescription) {
           try {
-            await peerConnection.addIceCandidate(new RTCIceCandidate(cand));
-          } catch (e) {}
+            await peerConnection.addIceCandidate(cand);
+            iceCandidatesReceivedCount++;
+          } catch (e) {
+            console.warn('Live candidate add error:', e);
+          }
         } else {
           iceCandidateQueue.push(cand);
         }
