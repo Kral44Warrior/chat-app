@@ -1379,6 +1379,41 @@ let remoteStream = null;
 let statsInterval = null;
 let iceCandidatesReceivedCount = 0;
 
+function waitForIceGathering(pc) {
+  return new Promise((resolve) => {
+    if (pc.iceGatheringState === 'complete') {
+      resolve();
+      return;
+    }
+    const checkState = () => {
+      if (pc.iceGatheringState === 'complete') {
+        pc.removeEventListener('icegatheringstatechange', checkState);
+        resolve();
+      }
+    };
+    pc.addEventListener('icegatheringstatechange', checkState);
+    setTimeout(() => {
+      pc.removeEventListener('icegatheringstatechange', checkState);
+      resolve();
+    }, 1000);
+  });
+}
+
+async function safelyAddIceCandidate(pc, cand) {
+  if (!cand || !cand.candidate) return;
+  try {
+    await pc.addIceCandidate(cand);
+    iceCandidatesReceivedCount++;
+  } catch (e1) {
+    try {
+      await pc.addIceCandidate(new RTCIceCandidate(cand));
+      iceCandidatesReceivedCount++;
+    } catch (e2) {
+      console.warn('safelyAddIceCandidate hatasi:', e2);
+    }
+  }
+}
+
 async function loadIceServers() {
   try {
     const res = await fetch('/api/ice');
@@ -1516,16 +1551,20 @@ async function initPeerConnection(isAnswerer) {
 
   if (!isAnswerer) {
     try {
+      setCallDebug('Teklif hazırlanıyor...');
       const offer = await peerConnection.createOffer({
         offerToReceiveAudio: true,
         offerToReceiveVideo: true
       });
       await peerConnection.setLocalDescription(offer);
 
+      await waitForIceGathering(peerConnection);
+
+      const finalOffer = peerConnection.localDescription || offer;
       socket.send(JSON.stringify({
         action: 'webrtc_signal',
         target_user: currentCall.peerUser,
-        signal: { type: 'offer', sdp: offer.sdp }
+        signal: { type: 'offer', sdp: finalOffer.sdp }
       }));
       setCallDebug('Teklif gönderildi, karşı tarafın cevabı bekleniyor...');
     } catch (err) {
@@ -1553,23 +1592,19 @@ async function handleWebRTCSignal(data) {
 
       while (iceCandidateQueue.length > 0) {
         const cand = iceCandidateQueue.shift();
-        if (cand && cand.candidate) {
-          try {
-            await peerConnection.addIceCandidate(cand);
-            iceCandidatesReceivedCount++;
-          } catch (e) {
-            console.warn('Queued candidate add error:', e);
-          }
-        }
+        await safelyAddIceCandidate(peerConnection, cand);
       }
 
       const answer = await peerConnection.createAnswer();
       await peerConnection.setLocalDescription(answer);
 
+      await waitForIceGathering(peerConnection);
+
+      const finalAnswer = peerConnection.localDescription || answer;
       socket.send(JSON.stringify({
         action: 'webrtc_signal',
         target_user: data.sender,
-        signal: { type: 'answer', sdp: answer.sdp }
+        signal: { type: 'answer', sdp: finalAnswer.sdp }
       }));
       setCallDebug('Cevap gönderildi, bağlantı kuruluyor...');
     } else if (signal.type === 'answer') {
@@ -1579,26 +1614,14 @@ async function handleWebRTCSignal(data) {
         await peerConnection.setRemoteDescription(new RTCSessionDescription({ type: 'answer', sdp: signal.sdp }));
         while (iceCandidateQueue.length > 0) {
           const cand = iceCandidateQueue.shift();
-          if (cand && cand.candidate) {
-            try {
-              await peerConnection.addIceCandidate(cand);
-              iceCandidatesReceivedCount++;
-            } catch (e) {
-              console.warn('Queued candidate add error:', e);
-            }
-          }
+          await safelyAddIceCandidate(peerConnection, cand);
         }
       }
     } else if (signal.type === 'candidate') {
       const cand = signal.candidate;
       if (cand && cand.candidate) {
         if (peerConnection && peerConnection.remoteDescription) {
-          try {
-            await peerConnection.addIceCandidate(cand);
-            iceCandidatesReceivedCount++;
-          } catch (e) {
-            console.warn('Live candidate add error:', e);
-          }
+          await safelyAddIceCandidate(peerConnection, cand);
         } else {
           iceCandidateQueue.push(cand);
         }
