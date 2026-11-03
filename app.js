@@ -1371,6 +1371,7 @@ async function handleCallResponse(data) {
   }
 
   showToast(`${data.responder.split('#')[0]} aramayı kabul etti! Bağlanılıyor...`);
+  currentCall.peerUser = data.responder; // Tam ve kesin kullanıcı adı
   await initPeerConnection(false);
 }
 
@@ -1398,7 +1399,7 @@ function setCallDebug(text) {
     if (!box) return;
     el = document.createElement('div');
     el.id = 'call-debug';
-    el.style.cssText = 'position:absolute;top:44px;left:20px;z-index:20;font-size:12px;color:#fbbf24;background:rgba(0,0,0,0.55);padding:4px 8px;border-radius:8px;max-width:90%;';
+    el.style.cssText = 'position:absolute;top:44px;left:20px;z-index:20;font-size:12px;color:#fbbf24;background:rgba(0,0,0,0.65);padding:6px 10px;border-radius:8px;max-width:90%;line-height:1.4;';
     box.appendChild(el);
   }
   el.textContent = text;
@@ -1419,9 +1420,9 @@ function startStatsMonitor() {
           if (lc && lc.candidateType === 'relay') relay = true;
         }
       });
-      setCallDebug(`Bağlantı: ${peerConnection.iceConnectionState}${relay ? ' (TURN)' : ''} | Giden ses: ${Math.round(outAudio / 1024)} KB | Gelen ses: ${Math.round(inAudio / 1024)} KB`);
+      setCallDebug(`Bağlantı: ${peerConnection.iceConnectionState}${relay ? ' (TURN)' : ''} | Sinyal: ${peerConnection.signalingState} | Giden ses: ${Math.round(outAudio / 1024)} KB | Gelen ses: ${Math.round(inAudio / 1024)} KB`);
     } catch (e) {}
-  }, 1500);
+  }, 1000);
 }
 
 async function initPeerConnection(isAnswerer) {
@@ -1432,7 +1433,7 @@ async function initPeerConnection(isAnswerer) {
 
   remoteStream = new MediaStream();
   peerConnection = new RTCPeerConnection(RTC_CONFIG);
-  setCallDebug('Bağlanıyor...');
+  setCallDebug(isAnswerer ? 'Cevaplayıcı: Bağlantı kuruluyor...' : 'Arayan: Teklif hazırlanıyor...');
   startStatsMonitor();
 
   if (localStream) {
@@ -1454,7 +1455,7 @@ async function initPeerConnection(isAnswerer) {
           remoteVideo.srcObject = vStream;
         }
         vStream.addTrack(event.track);
-        remoteVideo.muted = true; // Video element must be muted so mobile browser does NOT block autoplay!
+        remoteVideo.muted = true;
         remoteVideo.play().catch(e => console.warn('remoteVideo play:', e));
       }
     } else if (event.track.kind === 'audio') {
@@ -1468,7 +1469,6 @@ async function initPeerConnection(isAnswerer) {
         remoteAudio.play().catch(e => console.warn('remoteAudio play:', e));
       }
 
-      // Direct Web Audio API hardware output bypass
       try {
         if (!globalAudioCtx) {
           globalAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -1485,11 +1485,16 @@ async function initPeerConnection(isAnswerer) {
   };
 
   peerConnection.onicecandidate = (event) => {
-    if (event.candidate && socket && socket.readyState === WebSocket.OPEN) {
+    if (event.candidate && event.candidate.candidate && socket && socket.readyState === WebSocket.OPEN) {
+      const candObj = event.candidate.toJSON ? event.candidate.toJSON() : {
+        candidate: event.candidate.candidate,
+        sdpMid: event.candidate.sdpMid,
+        sdpMLineIndex: event.candidate.sdpMLineIndex
+      };
       socket.send(JSON.stringify({
         action: 'webrtc_signal',
         target_user: currentCall.peerUser,
-        signal: { type: 'candidate', candidate: event.candidate }
+        signal: { type: 'candidate', candidate: candObj }
       }));
     }
   };
@@ -1508,17 +1513,23 @@ async function initPeerConnection(isAnswerer) {
   };
 
   if (!isAnswerer) {
-    const offer = await peerConnection.createOffer({
-      offerToReceiveAudio: true,
-      offerToReceiveVideo: true
-    });
-    await peerConnection.setLocalDescription(offer);
+    try {
+      const offer = await peerConnection.createOffer({
+        offerToReceiveAudio: true,
+        offerToReceiveVideo: true
+      });
+      await peerConnection.setLocalDescription(offer);
 
-    socket.send(JSON.stringify({
-      action: 'webrtc_signal',
-      target_user: currentCall.peerUser,
-      signal: { type: 'offer', sdp: offer.sdp }
-    }));
+      socket.send(JSON.stringify({
+        action: 'webrtc_signal',
+        target_user: currentCall.peerUser,
+        signal: { type: 'offer', sdp: offer.sdp }
+      }));
+      setCallDebug('Teklif gönderildi, karşı tarafın cevabı bekleniyor...');
+    } catch (err) {
+      console.error('Teklif oluşturma hatası:', err);
+      setCallDebug('Teklif hatası: ' + err.message);
+    }
   }
 }
 
@@ -1530,42 +1541,57 @@ async function handleWebRTCSignal(data) {
     currentCall.peerUser = data.sender;
   }
 
-  if (signal.type === 'offer') {
-    if (!peerConnection) await initPeerConnection(true);
-    await peerConnection.setRemoteDescription(new RTCSessionDescription({ type: 'offer', sdp: signal.sdp }));
+  try {
+    if (signal.type === 'offer') {
+      console.log('Offer alındı, yanıtlanıyor...');
+      setCallDebug('Teklif alındı, yanıt hazırlanıyor...');
+      if (!peerConnection) await initPeerConnection(true);
 
-    while (iceCandidateQueue.length > 0) {
-      const cand = iceCandidateQueue.shift();
-      try { await peerConnection.addIceCandidate(new RTCIceCandidate(cand)); } catch (e) {}
-    }
+      await peerConnection.setRemoteDescription(new RTCSessionDescription({ type: 'offer', sdp: signal.sdp }));
 
-    const answer = await peerConnection.createAnswer({
-      offerToReceiveAudio: true,
-      offerToReceiveVideo: true
-    });
-    await peerConnection.setLocalDescription(answer);
-
-    socket.send(JSON.stringify({
-      action: 'webrtc_signal',
-      target_user: data.sender,
-      signal: { type: 'answer', sdp: answer.sdp }
-    }));
-  } else if (signal.type === 'answer') {
-    if (peerConnection) {
-      await peerConnection.setRemoteDescription(new RTCSessionDescription({ type: 'answer', sdp: signal.sdp }));
       while (iceCandidateQueue.length > 0) {
         const cand = iceCandidateQueue.shift();
-        try { await peerConnection.addIceCandidate(new RTCIceCandidate(cand)); } catch (e) {}
+        if (cand && cand.candidate) {
+          try { await peerConnection.addIceCandidate(new RTCIceCandidate(cand)); } catch (e) {}
+        }
+      }
+
+      const answer = await peerConnection.createAnswer();
+      await peerConnection.setLocalDescription(answer);
+
+      socket.send(JSON.stringify({
+        action: 'webrtc_signal',
+        target_user: data.sender,
+        signal: { type: 'answer', sdp: answer.sdp }
+      }));
+      setCallDebug('Cevap gönderildi, bağlantı kuruluyor...');
+    } else if (signal.type === 'answer') {
+      console.log('Answer alındı, bağlantı kilitleniyor...');
+      setCallDebug('Cevap alındı, ses/görüntü açılıyor...');
+      if (peerConnection) {
+        await peerConnection.setRemoteDescription(new RTCSessionDescription({ type: 'answer', sdp: signal.sdp }));
+        while (iceCandidateQueue.length > 0) {
+          const cand = iceCandidateQueue.shift();
+          if (cand && cand.candidate) {
+            try { await peerConnection.addIceCandidate(new RTCIceCandidate(cand)); } catch (e) {}
+          }
+        }
+      }
+    } else if (signal.type === 'candidate') {
+      const cand = signal.candidate;
+      if (cand && cand.candidate) {
+        if (peerConnection && peerConnection.remoteDescription) {
+          try {
+            await peerConnection.addIceCandidate(new RTCIceCandidate(cand));
+          } catch (e) {}
+        } else {
+          iceCandidateQueue.push(cand);
+        }
       }
     }
-  } else if (signal.type === 'candidate') {
-    if (peerConnection && peerConnection.remoteDescription) {
-      try {
-        await peerConnection.addIceCandidate(new RTCIceCandidate(signal.candidate));
-      } catch (e) {}
-    } else {
-      iceCandidateQueue.push(signal.candidate);
-    }
+  } catch (err) {
+    console.error('WebRTC sinyal hatası:', err);
+    setCallDebug('Sinyal hatası: ' + err.message);
   }
 }
 

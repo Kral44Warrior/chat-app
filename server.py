@@ -163,12 +163,13 @@ class ConnectionManager:
         text = json.dumps(message)
         matched_sockets = set()
         target_clean = str(target).lower().strip()
+        target_name = target_clean.split("#")[0].strip()
 
         for ws, info in self.user_info.items():
             h = info["handle"].lower()
             u = info["username"].lower()
             t = info["tag"].lower()
-            if target_clean in (h, u, f"#{t}", t):
+            if (target_clean in (h, u, f"#{t}", t)) or (target_name == u) or h.startswith(target_clean):
                 matched_sockets.add(ws)
 
         sent_any = False
