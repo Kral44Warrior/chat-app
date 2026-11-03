@@ -148,9 +148,29 @@ const RTC_CONFIG = {
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' },
     { urls: 'stun:stun2.l.google.com:19302' },
-    { urls: 'stun:stun3.l.google.com:19302' },
-    { urls: 'stun:stun4.l.google.com:19302' }
-  ]
+    { urls: 'stun:openrelay.metered.ca:80' },
+    {
+      urls: 'turn:openrelay.metered.ca:80',
+      username: 'openrelayproject',
+      credential: 'openrelayproject'
+    },
+    {
+      urls: 'turn:openrelay.metered.ca:443',
+      username: 'openrelayproject',
+      credential: 'openrelayproject'
+    },
+    {
+      urls: 'turn:openrelay.metered.ca:443?transport=tcp',
+      username: 'openrelayproject',
+      credential: 'openrelayproject'
+    },
+    {
+      urls: 'turns:openrelay.metered.ca:443',
+      username: 'openrelayproject',
+      credential: 'openrelayproject'
+    }
+  ],
+  iceCandidatePoolSize: 10
 };
 
 // ==================== AUDIO SYNTHESIZER & SOUNDS ====================
@@ -1212,6 +1232,11 @@ function showUserPickerForCall(isVideo) {
 
 async function startCallTo(targetUser, isVideo = false) {
   unlockAudio();
+  const remoteVideo = document.getElementById('remote-video');
+  const remoteAudio = document.getElementById('remote-audio');
+  if (remoteVideo) remoteVideo.play().catch(() => {});
+  if (remoteAudio) remoteAudio.play().catch(() => {});
+
   if (!socket || socket.readyState !== WebSocket.OPEN) {
     showToast('Sunucu bağlantısı yok, aranamadı.');
     return;
@@ -1284,6 +1309,12 @@ async function answerCall(accepted) {
   stopTitleFlash();
   if (incomingCallModal) incomingCallModal.style.display = 'none';
 
+  // Prime media elements for autoplay permissions
+  const remoteVideo = document.getElementById('remote-video');
+  const remoteAudio = document.getElementById('remote-audio');
+  if (remoteVideo) remoteVideo.play().catch(() => {});
+  if (remoteAudio) remoteAudio.play().catch(() => {});
+
   if (!accepted) {
     if (socket && socket.readyState === WebSocket.OPEN) {
       socket.send(JSON.stringify({
@@ -1332,11 +1363,15 @@ async function handleCallResponse(data) {
   await initPeerConnection(false);
 }
 
+let remoteStream = null;
+
 async function initPeerConnection(isAnswerer) {
   if (peerConnection) {
     try { peerConnection.close(); } catch (e) {}
+    peerConnection = null;
   }
 
+  remoteStream = new MediaStream();
   peerConnection = new RTCPeerConnection(RTC_CONFIG);
 
   if (localStream) {
@@ -1346,17 +1381,24 @@ async function initPeerConnection(isAnswerer) {
   }
 
   peerConnection.ontrack = (event) => {
-    const stream = event.streams[0];
+    console.log('WebRTC ontrack:', event.track.kind);
     const remoteVideo = document.getElementById('remote-video');
     const remoteAudio = document.getElementById('remote-audio');
 
+    if (event.streams && event.streams[0]) {
+      remoteStream = event.streams[0];
+    } else {
+      remoteStream.addTrack(event.track);
+    }
+
     if (remoteVideo) {
-      remoteVideo.srcObject = stream;
-      remoteVideo.play().catch(() => {});
+      remoteVideo.srcObject = remoteStream;
+      remoteVideo.muted = false;
+      remoteVideo.play().catch(e => console.warn('video play:', e));
     }
     if (remoteAudio) {
-      remoteAudio.srcObject = stream;
-      remoteAudio.play().catch(() => {});
+      remoteAudio.srcObject = remoteStream;
+      remoteAudio.play().catch(e => console.warn('audio play:', e));
     }
   };
 
@@ -1370,10 +1412,23 @@ async function initPeerConnection(isAnswerer) {
     }
   };
 
+  peerConnection.oniceconnectionstatechange = () => {
+    console.log('ICE Connection State:', peerConnection.iceConnectionState);
+    if (peerConnection.iceConnectionState === 'connected' || peerConnection.iceConnectionState === 'completed') {
+      showToast('Ses ve görüntü bağlandı! 🟢');
+    } else if (peerConnection.iceConnectionState === 'failed') {
+      console.warn('ICE failed, restarting...');
+      showToast('Bağlantı koptu, yeniden deneniyor... 🟡');
+      if (typeof peerConnection.restartIce === 'function') {
+        peerConnection.restartIce();
+      }
+    }
+  };
+
   if (!isAnswerer) {
     const offer = await peerConnection.createOffer({
       offerToReceiveAudio: true,
-      offerToReceiveVideo: currentCall.isVideo
+      offerToReceiveVideo: true
     });
     await peerConnection.setLocalDescription(offer);
 
@@ -1388,6 +1443,10 @@ async function initPeerConnection(isAnswerer) {
 async function handleWebRTCSignal(data) {
   const signal = data.signal;
   if (!signal) return;
+
+  if (data.sender) {
+    currentCall.peerUser = data.sender;
+  }
 
   if (signal.type === 'offer') {
     if (!peerConnection) await initPeerConnection(true);
@@ -1500,6 +1559,11 @@ function endCall(sendSignal = true) {
   if (localStream) {
     localStream.getTracks().forEach(t => t.stop());
     localStream = null;
+  }
+
+  if (remoteStream) {
+    remoteStream.getTracks().forEach(t => t.stop());
+    remoteStream = null;
   }
 
   if (peerConnection) {
