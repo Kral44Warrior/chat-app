@@ -1,7 +1,7 @@
-// ==================== STATE ====================
+// ==================== STATE & USER ID ====================
 function getStoredTag() {
   let tag = localStorage.getItem("chat_tag");
-  if (!tag || tag.length !== 4) {
+  if (!tag || tag.length !== 4 || isNaN(tag)) {
     tag = String(Math.floor(1000 + Math.random() * 9000));
     localStorage.setItem("chat_tag", tag);
   }
@@ -39,7 +39,7 @@ let originalDocTitle = document.title || "Chat - Anlık Sohbet";
 let globalAudioCtx = null;
 let callVibrateInterval = null;
 
-// Screen Share State
+// Screen Sharing
 let isScreenSharing = false;
 let screenStream = null;
 
@@ -83,7 +83,7 @@ function generateNotifWav() {
   const samples = new Float32Array(len);
   for (let i = 0; i < len; i++) {
     const t = i / rate;
-    const freq = t < 0.12 ? 587.33 : 880; // D5 then A5
+    const freq = t < 0.12 ? 587.33 : 880;
     const decay = Math.exp(-t * 8);
     samples[i] = Math.sin(2 * Math.PI * freq * t) * decay * 0.6;
   }
@@ -128,6 +128,10 @@ function unlockAudio() {
     const notifEl = document.getElementById("audio-notif");
     if (notifEl) {
       notifEl.play().then(() => { notifEl.pause(); notifEl.currentTime = 0; }).catch(() => {});
+    }
+    const remAudio = document.getElementById("remote-audio");
+    if (remAudio) {
+      remAudio.play().catch(() => {});
     }
   } catch (e) {}
 }
@@ -393,7 +397,7 @@ if (randomTagBtn) {
     currentUser.tag = newTag;
     localStorage.setItem("chat_tag", newTag);
     if (userTagInput) userTagInput.value = newTag;
-    showToast(`Yeni ID oluşturuldu: #${newTag}`);
+    showToast(`Yeni ID: #${newTag}`);
   });
 }
 
@@ -452,6 +456,7 @@ function enterApp() {
 
   initAudioElements();
   initNotifications();
+  initEmojiPicker();
 
   loadRooms().then(() => {
     connectWebSocket();
@@ -497,7 +502,6 @@ function connectWebSocket() {
 
 function handleSocketMessage(data) {
   if (data.type === "online_users") {
-    // data.users is list of { username, tag, handle }
     const rawUsers = data.users || [];
     onlineUsers = rawUsers
       .map(u => typeof u === "string" ? { username: u.split("#")[0], tag: u.split("#")[1] || "0000", handle: u } : u)
@@ -568,7 +572,7 @@ function handleSocketMessage(data) {
   }
 }
 
-// ==================== ROOMS & CHATS ====================
+// ==================== ROOMS & CHATS (MOBILE FIXED) ====================
 async function loadRooms() {
   try {
     const res = await fetch("/api/rooms");
@@ -723,12 +727,13 @@ async function switchChat(roomId, name, isDirect = false, recipient = "") {
   closeInChatSearchBarFunc();
   await loadMessages(roomId);
 
-  if (window.innerWidth <= 768) {
-    appLayout.classList.add("mobile-chat-open");
-  }
+  // Mobile navigation: open chat screen seamlessly!
+  appLayout.classList.add("chat-open");
+  appLayout.classList.add("mobile-chat-open");
 }
 
 mobileBackBtn.addEventListener("click", () => {
+  appLayout.classList.remove("chat-open");
   appLayout.classList.remove("mobile-chat-open");
 });
 
@@ -928,7 +933,6 @@ messageInput.addEventListener("keydown", (e) => {
   }
 });
 
-// Auto-grow textarea & typing status
 messageInput.addEventListener("input", () => {
   messageInput.style.height = "auto";
   messageInput.style.height = Math.min(messageInput.scrollHeight, 120) + "px";
@@ -1121,7 +1125,125 @@ sendRecBtn.addEventListener("click", () => {
   mediaRecorder.stop();
 });
 
-// ==================== CATEGORIZED EMOJI PICKER ====================
+// ==================== CATEGORIZED EMOJI PICKER (JS GENERATED) ====================
+const EMOJI_CATEGORIES = [
+  {
+    id: "faces",
+    icon: "😊",
+    title: "Yüzler & İfadeler",
+    emojis: [
+      "😀","😃","😄","😁","😆","😅","😂","🤣","🥲","🥹","☺️","😊","😇","🙂","🙃","😉",
+      "😌","😍","🥰","😘","😗","😙","😚","😋","😛","😝","😜","🤪","🤨","🧐","🤓","😎",
+      "🥸","🤩","🥳","😏","😒","😞","😔","😟","😕","🙁","☹️","😣","😖","😫","😩","🥺",
+      "😢","😭","😮‍💨","😤","😠","😡","🤬","🤯","😳","🥵","🥶","😱","😨","😰","😥","😓",
+      "🤗","🤔","🫣","🤭","🫢","🫡","🤫","🫠","🤥","😶","🫥","😐","😑","😬","🙄","😯",
+      "😦","😧","😮","😲","🥱","😴","🤤","😪","😵","😵‍💫","🤐","🥴","🤢","🤮","🤧","😷",
+      "🤒","🤕","🤑","🤠","😈","👿","👹","👺","🤡","💩","👻","💀","☠️","👽","👾","🤖"
+    ]
+  },
+  {
+    id: "gestures",
+    icon: "👍",
+    title: "El & Beden Hareketleri",
+    emojis: [
+      "👍","👎","👊","✊","🤛","🤜","👏","🙌","👐","🤲","🤝","🙏","✌️","🤞","🤟","🤘",
+      "👌","🤌","🤏","👈","👉","👆","👇","☝️","✋","🤚","🖐️","🖖","👋","🤙","🫲","🫱",
+      "💪","🦾","🖕","✍️","🤳","💅","👀","👁️"
+    ]
+  },
+  {
+    id: "hearts",
+    icon: "❤️",
+    title: "Kalpler & Aşk",
+    emojis: [
+      "❤️","🧡","💛","💚","💙","💜","🖤","🤍","🤎","💔","❤️‍🔥","❤️‍🩹","❣️","💕","💞","💓",
+      "💗","💖","💘","💝","💟","♥️","💋","💌"
+    ]
+  },
+  {
+    id: "fire",
+    icon: "🔥",
+    title: "Ateş & Havalı",
+    emojis: [
+      "🔥","✨","⭐","🌟","💫","💥","💢","💯","🎉","🎊","🎈","🍾","🏆","👑","💎","⚡",
+      "🚀","🎯","🥇","🥈","🥉","🎖️","🏵️","🔮"
+    ]
+  },
+  {
+    id: "objects",
+    icon: "🎮",
+    title: "Aktivite & Eşyalar",
+    emojis: [
+      "🎮","🕹️","🎲","🎯","🎳","⚽","🏀","🏈","⚾","🎾","🏐","🥊","🎱","🏓","🏸",
+      "🚗","🏎️","🏍️","✈️","📱","💻","🎧","📷","🎵","🎶","🎙️","🔔","💡","☕","🍕"
+    ]
+  },
+  {
+    id: "animals",
+    icon: "🐶",
+    title: "Hayvanlar & Doğa",
+    emojis: [
+      "🐶","🐱","🐭","🐹","🐰","🦊","🐻","🐼","🐨","🐯","🦁","🐮","🐷","🐸","🐵","🐔",
+      "🐧","🐦","🦅","🦆","🦉","🦇","🐺","🐗","🐴","🦄","🐝","🐛","🦋","🐌","🐞","🐜",
+      "☀️","🌙","⭐","☁️","🌧️","⛈️","❄️","🌈"
+    ]
+  }
+];
+
+function initEmojiPicker() {
+  const tabsContainer = document.getElementById("emoji-nav-tabs");
+  const contentContainer = document.getElementById("emoji-scroll-content");
+  if (!tabsContainer || !contentContainer) return;
+
+  tabsContainer.innerHTML = "";
+  contentContainer.innerHTML = "";
+
+  EMOJI_CATEGORIES.forEach((cat, idx) => {
+    // Tab Button
+    const tabBtn = document.createElement("button");
+    tabBtn.className = `emoji-nav-btn ${idx === 0 ? "active" : ""}`;
+    tabBtn.textContent = cat.icon;
+    tabBtn.title = cat.title;
+    tabBtn.dataset.catId = cat.id;
+
+    tabBtn.addEventListener("click", () => {
+      document.querySelectorAll(".emoji-nav-btn").forEach(b => b.classList.remove("active"));
+      document.querySelectorAll(".emoji-grid-section").forEach(s => s.classList.remove("active"));
+      tabBtn.classList.add("active");
+      const targetSec = document.getElementById(`cat-grid-${cat.id}`);
+      if (targetSec) targetSec.classList.add("active");
+    });
+    tabsContainer.appendChild(tabBtn);
+
+    // Grid Section
+    const gridSec = document.createElement("div");
+    gridSec.className = `emoji-grid-section ${idx === 0 ? "active" : ""}`;
+    gridSec.id = `cat-grid-${cat.id}`;
+
+    cat.emojis.forEach(emojiChar => {
+      const span = document.createElement("span");
+      span.className = "emoji-item";
+      span.textContent = emojiChar;
+      span.addEventListener("click", () => {
+        insertEmoji(emojiChar);
+      });
+      gridSec.appendChild(span);
+    });
+
+    contentContainer.appendChild(gridSec);
+  });
+}
+
+function insertEmoji(char) {
+  const start = messageInput.selectionStart;
+  const end = messageInput.selectionEnd;
+  const val = messageInput.value;
+  messageInput.value = val.substring(0, start) + char + val.substring(end);
+  messageInput.selectionStart = messageInput.selectionEnd = start + char.length;
+  messageInput.focus();
+  messageInput.dispatchEvent(new Event("input"));
+}
+
 emojiBtn.addEventListener("click", (e) => {
   e.stopPropagation();
   emojiPicker.style.display = emojiPicker.style.display === "none" ? "flex" : "none";
@@ -1130,24 +1252,6 @@ emojiBtn.addEventListener("click", (e) => {
 document.addEventListener("click", (e) => {
   if (!emojiPicker.contains(e.target) && e.target !== emojiBtn) {
     emojiPicker.style.display = "none";
-  }
-});
-
-document.querySelectorAll(".emoji-nav-btn").forEach(btn => {
-  btn.addEventListener("click", () => {
-    document.querySelectorAll(".emoji-nav-btn").forEach(b => b.classList.remove("active"));
-    document.querySelectorAll(".emoji-grid-section").forEach(sec => sec.classList.remove("active"));
-    btn.classList.add("active");
-    const cat = btn.dataset.cat;
-    const targetSec = document.getElementById(`cat-${cat}`);
-    if (targetSec) targetSec.classList.add("active");
-  });
-});
-
-emojiPicker.addEventListener("click", (e) => {
-  if (e.target.tagName === "SPAN") {
-    messageInput.value += e.target.textContent;
-    messageInput.focus();
   }
 });
 
@@ -1209,6 +1313,9 @@ function clearSearchHighlights() {
 // ==================== WEBRTC CALLS (VOICE & VIDEO) ====================
 let localStream = null;
 let peerConnection = null;
+let remoteStream = null;
+let iceCandidateQueue = [];
+
 let currentCall = {
   peerUser: null,
   isVideo: false,
@@ -1220,8 +1327,13 @@ let currentCall = {
 const rtcConfig = {
   iceServers: [
     { urls: "stun:stun.l.google.com:19302" },
-    { urls: "stun:stun1.l.google.com:19302" }
-  ]
+    { urls: "stun:stun1.l.google.com:19302" },
+    { urls: "stun:stun2.l.google.com:19302" },
+    { urls: "stun:stun3.l.google.com:19302" },
+    { urls: "stun:stun4.l.google.com:19302" },
+    { urls: "stun:stun.services.mozilla.com" }
+  ],
+  iceCandidatePoolSize: 10
 };
 
 // Header Call Buttons
@@ -1301,11 +1413,12 @@ async function startCallTo(targetUser, isVideo) {
   currentCall.peerUser = targetUser;
   currentCall.isVideo = isVideo;
   currentCall.isCaller = true;
+  iceCandidateQueue = [];
 
   try {
     const constraints = {
       audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
-      video: isVideo ? { facingMode: { ideal: currentFacingMode } } : false
+      video: isVideo ? { facingMode: { ideal: currentFacingMode }, width: { ideal: 640 }, height: { ideal: 480 } } : false
     };
 
     localStream = await navigator.mediaDevices.getUserMedia(constraints);
@@ -1347,6 +1460,7 @@ function handleIncomingCall(data) {
   currentCall.peerUser = data.caller;
   currentCall.isVideo = data.is_video;
   currentCall.isCaller = false;
+  iceCandidateQueue = [];
 
   const callerDisplayName = data.caller.split("#")[0];
   document.getElementById("incoming-caller-name").textContent = data.caller;
@@ -1399,7 +1513,7 @@ if (acceptCallBtn) {
     try {
       const constraints = {
         audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
-        video: currentCall.isVideo ? { facingMode: { ideal: currentFacingMode } } : false
+        video: currentCall.isVideo ? { facingMode: { ideal: currentFacingMode }, width: { ideal: 640 }, height: { ideal: 480 } } : false
       };
       localStream = await navigator.mediaDevices.getUserMedia(constraints);
     } catch (e) {
@@ -1429,6 +1543,7 @@ if (acceptCallBtn) {
     }
 
     showActiveCallScreen(currentCall.peerUser.split("#")[0], currentCall.isVideo, localStream, false);
+    setupPeerConnection();
 
     if (socket && socket.readyState === WebSocket.OPEN) {
       socket.send(JSON.stringify({
@@ -1448,16 +1563,24 @@ async function handleCallResponse(data) {
     showToast(`${responderName} aramayı reddetti veya yanıt veremiyor.`);
     endCall(false);
   } else {
-    showToast(`${responderName} aramayı kabul etti!`);
+    showToast(`${responderName} aramayı kabul etti! Bağlanıyor...`);
+    currentCall.peerUser = data.responder;
     const statusSub = document.getElementById("audio-call-status");
-    if (statusSub) statusSub.textContent = "Bağlandı";
+    if (statusSub) statusSub.textContent = "Bağlanıyor...";
+
     setupPeerConnection();
-    const offer = await peerConnection.createOffer();
+    ensureLocalTracksAdded();
+
+    const offer = await peerConnection.createOffer({
+      offerToReceiveAudio: true,
+      offerToReceiveVideo: currentCall.isVideo
+    });
     await peerConnection.setLocalDescription(offer);
+
     socket.send(JSON.stringify({
       action: "webrtc_signal",
       target_user: currentCall.peerUser,
-      signal: { type: "offer", sdp: offer }
+      signal: { type: "offer", sdp: offer.sdp }
     }));
   }
 }
@@ -1468,18 +1591,32 @@ function setupPeerConnection() {
     try { peerConnection.close(); } catch (e) {}
   }
   peerConnection = new RTCPeerConnection(rtcConfig);
+  remoteStream = new MediaStream();
 
-  if (localStream) {
-    localStream.getTracks().forEach(track => {
-      peerConnection.addTrack(track, localStream);
-    });
-  }
+  ensureLocalTracksAdded();
 
   peerConnection.ontrack = (event) => {
+    console.log("WebRTC ontrack event:", event.track.kind, event.streams);
+    const stream = (event.streams && event.streams[0]) ? event.streams[0] : null;
+
+    if (stream) {
+      remoteStream = stream;
+    } else {
+      remoteStream.addTrack(event.track);
+    }
+
+    // Connect to video element
     const remoteVideo = document.getElementById("remote-video");
     if (remoteVideo) {
-      remoteVideo.srcObject = event.streams[0];
-      remoteVideo.play().catch(() => {});
+      remoteVideo.srcObject = remoteStream;
+      remoteVideo.play().catch(e => console.warn("Remote video play error:", e));
+    }
+
+    // Connect to dedicated audio element for guaranteed sound
+    const remoteAudio = document.getElementById("remote-audio");
+    if (remoteAudio) {
+      remoteAudio.srcObject = remoteStream;
+      remoteAudio.play().catch(e => console.warn("Remote audio play error:", e));
     }
   };
 
@@ -1493,30 +1630,88 @@ function setupPeerConnection() {
     }
   };
 
+  peerConnection.onconnectionstatechange = () => {
+    console.log("WebRTC Connection State:", peerConnection.connectionState);
+    if (peerConnection.connectionState === "connected") {
+      showToast("Görüşme bağlandı! 🟢");
+      const statusSub = document.getElementById("audio-call-status");
+      if (statusSub) statusSub.textContent = "Bağlandı (Görüşülüyor)";
+    } else if (peerConnection.connectionState === "failed" || peerConnection.connectionState === "disconnected") {
+      showToast("Görüşme bağlantısı koptu.");
+    }
+  };
+
   startCallTimer();
+}
+
+function ensureLocalTracksAdded() {
+  if (!peerConnection || !localStream) return;
+  const senders = peerConnection.getSenders();
+  localStream.getTracks().forEach(track => {
+    const existing = senders.find(s => s.track && s.track.kind === track.kind);
+    if (!existing) {
+      peerConnection.addTrack(track, localStream);
+    }
+  });
 }
 
 async function handleWebRTCSignal(data) {
   const signal = data.signal;
+  if (!signal) return;
+
   if (!peerConnection) {
     setupPeerConnection();
   }
+  ensureLocalTracksAdded();
 
   if (signal.type === "offer") {
-    await peerConnection.setRemoteDescription(new RTCSessionDescription(signal.sdp));
-    const answer = await peerConnection.createAnswer();
+    currentCall.peerUser = data.sender;
+    const sdpStr = typeof signal.sdp === "string" ? signal.sdp : (signal.sdp ? signal.sdp.sdp : "");
+    await peerConnection.setRemoteDescription(new RTCSessionDescription({
+      type: "offer",
+      sdp: sdpStr
+    }));
+
+    // Process queued candidates
+    while (iceCandidateQueue.length > 0) {
+      const cand = iceCandidateQueue.shift();
+      try { await peerConnection.addIceCandidate(cand); } catch(e) {}
+    }
+
+    const answer = await peerConnection.createAnswer({
+      offerToReceiveAudio: true,
+      offerToReceiveVideo: currentCall.isVideo
+    });
     await peerConnection.setLocalDescription(answer);
+
     socket.send(JSON.stringify({
       action: "webrtc_signal",
       target_user: data.sender,
-      signal: { type: "answer", sdp: answer }
+      signal: { type: "answer", sdp: answer.sdp }
     }));
   } else if (signal.type === "answer") {
-    await peerConnection.setRemoteDescription(new RTCSessionDescription(signal.sdp));
+    const sdpStr = typeof signal.sdp === "string" ? signal.sdp : (signal.sdp ? signal.sdp.sdp : "");
+    await peerConnection.setRemoteDescription(new RTCSessionDescription({
+      type: "answer",
+      sdp: sdpStr
+    }));
+
+    // Process queued candidates
+    while (iceCandidateQueue.length > 0) {
+      const cand = iceCandidateQueue.shift();
+      try { await peerConnection.addIceCandidate(cand); } catch(e) {}
+    }
   } else if (signal.type === "candidate") {
-    try {
-      await peerConnection.addIceCandidate(new RTCIceCandidate(signal.candidate));
-    } catch (e) {}
+    const candidate = new RTCIceCandidate(signal.candidate);
+    if (peerConnection && peerConnection.remoteDescription && peerConnection.remoteDescription.type) {
+      try {
+        await peerConnection.addIceCandidate(candidate);
+      } catch (e) {
+        console.warn("addIceCandidate error:", e);
+      }
+    } else {
+      iceCandidateQueue.push(candidate);
+    }
   }
 }
 
@@ -1637,7 +1832,6 @@ async function toggleScreenShare() {
 
       const screenTrack = screenStream.getVideoTracks()[0];
 
-      // Native browser "Stop Sharing" listener
       screenTrack.onended = () => {
         stopScreenShare();
       };
@@ -1654,7 +1848,7 @@ async function toggleScreenShare() {
         socket.send(JSON.stringify({
           action: "webrtc_signal",
           target_user: currentCall.peerUser,
-          signal: { type: "offer", sdp: offer }
+          signal: { type: "offer", sdp: offer.sdp }
         }));
       }
 
@@ -1758,6 +1952,8 @@ function endCall(notifyPeer = true) {
     peerConnection.close();
     peerConnection = null;
   }
+
+  iceCandidateQueue = [];
 
   activeCallModal.style.display = "none";
   incomingCallModal.style.display = "none";
